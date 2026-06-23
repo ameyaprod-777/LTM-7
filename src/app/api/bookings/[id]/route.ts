@@ -15,6 +15,13 @@ import { patchBookingSchema } from "@/lib/validations/booking";
 import { DAMAGE_TYPES } from "@/lib/validations/damage-report";
 import { notifyAdminsNewTicket } from "@/lib/ticket-notify";
 import { TicketCategory, TicketPriority } from "@prisma/client";
+import {
+  sendEmail,
+  bookingApprovedEmail,
+  bookingCancelledEmail,
+  areEmailNotificationsEnabled,
+  isDeliverableEmail,
+} from "@/lib/email";
 
 export async function PATCH(
   req: Request,
@@ -43,10 +50,13 @@ export async function PATCH(
       listing: { select: { title: true } },
       lister: {
         select: {
+          email: true,
+          name: true,
           stripeAccountId: true,
           stripeChargesEnabled: true,
         },
       },
+      renter: { select: { email: true, name: true } },
       conversation: { select: { id: true } },
     },
   });
@@ -94,6 +104,21 @@ export async function PATCH(
         body: booking.listing.title,
         link: `/dashboard/bookings`,
       });
+
+      if (areEmailNotificationsEnabled() && isDeliverableEmail(booking.renter.email)) {
+        await sendEmail({
+          to: booking.renter.email!,
+          subject: `Votre demande a été approuvée — ${booking.listing.title}`,
+          html: bookingApprovedEmail(
+            booking.renter.name ?? "Locataire",
+            booking.listing.title,
+            booking.startDate.toLocaleDateString("fr-FR"),
+            booking.endDate.toLocaleDateString("fr-FR"),
+            (booking.totalAmount / 100).toFixed(0)
+          ),
+        });
+      }
+
       return NextResponse.json({
         ok: true,
         needsPayment: true,
@@ -178,10 +203,9 @@ export async function PATCH(
       });
     }
 
-    const otherId =
-      session.user.id === booking.renterId
-        ? booking.listerId
-        : booking.renterId;
+    const cancelledByRenter = session.user.id === booking.renterId;
+    const otherId = cancelledByRenter ? booking.listerId : booking.renterId;
+    const other = cancelledByRenter ? booking.lister : booking.renter;
 
     await createNotification({
       userId: otherId,
@@ -190,6 +214,21 @@ export async function PATCH(
       body: refundCalc.label,
       link: `/dashboard/bookings`,
     });
+
+    if (areEmailNotificationsEnabled() && isDeliverableEmail(other.email)) {
+      await sendEmail({
+        to: other.email!,
+        subject: `Réservation annulée — ${booking.listing.title}`,
+        html: bookingCancelledEmail(
+          other.name ?? "Membre",
+          booking.listing.title,
+          booking.startDate.toLocaleDateString("fr-FR"),
+          booking.endDate.toLocaleDateString("fr-FR"),
+          refundCalc.label,
+          cancelledByRenter
+        ),
+      });
+    }
 
     return NextResponse.json({
       ok: true,

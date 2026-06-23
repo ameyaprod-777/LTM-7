@@ -176,6 +176,144 @@ export function notificationEmail(
   `;
 }
 
+// ─── Booking emails ───────────────────────────────────────────────────────────
+
+export function bookingRequestEmail(
+  listerName: string,
+  renterName: string,
+  listingTitle: string,
+  startDate: string,
+  endDate: string,
+  totalEuros: string
+) {
+  return `
+    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
+      <h1 style="font-size:20px;margin:0 0 12px">Nouvelle demande de location</h1>
+      <p>Bonjour ${listerName.replace(/</g, "&lt;")},</p>
+      <p><strong>${renterName.replace(/</g, "&lt;")}</strong> souhaite louer votre matériel :</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:6px 0;color:#555">Annonce</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Du</td><td style="padding:6px 0">${startDate}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Au</td><td style="padding:6px 0">${endDate}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Total locataire</td><td style="padding:6px 0;font-weight:600">${totalEuros} €</td></tr>
+      </table>
+      <p style="margin:24px 0 0">
+        <a href="${appUrl("/dashboard/bookings?role=lister")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+          Approuver ou refuser
+        </a>
+      </p>
+      <p style="margin:16px 0 0;font-size:13px;color:#888">La demande expire si vous ne répondez pas sous 48 h.</p>
+    </div>
+  `;
+}
+
+export function bookingApprovedEmail(
+  renterName: string,
+  listingTitle: string,
+  startDate: string,
+  endDate: string,
+  totalEuros: string
+) {
+  return `
+    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
+      <h1 style="font-size:20px;margin:0 0 12px">Votre demande a été approuvée ✓</h1>
+      <p>Bonjour ${renterName.replace(/</g, "&lt;")},</p>
+      <p>Le loueur a accepté votre demande pour <strong>${listingTitle.replace(/</g, "&lt;")}</strong>.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Montant à payer</td><td style="padding:6px 0;font-weight:600">${totalEuros} €</td></tr>
+      </table>
+      <p style="margin:24px 0 0">
+        <a href="${appUrl("/dashboard/bookings")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+          Procéder au paiement
+        </a>
+      </p>
+      <p style="margin:16px 0 0;font-size:13px;color:#888">La réservation ne sera effective qu'après paiement.</p>
+    </div>
+  `;
+}
+
+export function bookingConfirmedRenterEmail(
+  renterName: string,
+  listingTitle: string,
+  startDate: string,
+  endDate: string,
+  listerName: string
+) {
+  return `
+    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
+      <h1 style="font-size:20px;margin:0 0 12px">Réservation confirmée 🎉</h1>
+      <p>Bonjour ${renterName.replace(/</g, "&lt;")},</p>
+      <p>Votre paiement a bien été reçu. La location est confirmée !</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:6px 0;color:#555">Matériel</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Loueur</td><td style="padding:6px 0">${listerName.replace(/</g, "&lt;")}</td></tr>
+      </table>
+      <p style="margin:24px 0 0">
+        <a href="${appUrl("/dashboard/bookings")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+          Voir ma réservation
+        </a>
+      </p>
+    </div>
+  `;
+}
+
+export function bookingConfirmedListerEmail(
+  listerName: string,
+  listingTitle: string,
+  startDate: string,
+  endDate: string,
+  renterName: string,
+  netEuros: string
+) {
+  return `
+    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
+      <h1 style="font-size:20px;margin:0 0 12px">Paiement reçu — location confirmée ✓</h1>
+      <p>Bonjour ${listerName.replace(/</g, "&lt;")},</p>
+      <p>Le paiement de <strong>${renterName.replace(/</g, "&lt;")}</strong> a été encaissé. La location de votre matériel est confirmée.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:6px 0;color:#555">Matériel</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Votre revenu net</td><td style="padding:6px 0;font-weight:600">${netEuros} €</td></tr>
+      </table>
+      <p style="margin:24px 0 0">
+        <a href="${appUrl("/dashboard/bookings?role=lister")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+          Voir mes locations
+        </a>
+      </p>
+    </div>
+  `;
+}
+
+export function bookingCancelledEmail(
+  recipientName: string,
+  listingTitle: string,
+  startDate: string,
+  endDate: string,
+  refundLabel: string,
+  cancelledByRenter: boolean
+) {
+  const who = cancelledByRenter ? "Le locataire" : "Le loueur";
+  return `
+    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
+      <h1 style="font-size:20px;margin:0 0 12px">Réservation annulée</h1>
+      <p>Bonjour ${recipientName.replace(/</g, "&lt;")},</p>
+      <p>${who} a annulé la réservation suivante :</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:6px 0;color:#555">Matériel</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
+        <tr><td style="padding:6px 0;color:#555">Remboursement</td><td style="padding:6px 0">${refundLabel.replace(/</g, "&lt;")}</td></tr>
+      </table>
+      <p style="margin:24px 0 0">
+        <a href="${appUrl("/dashboard/bookings")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+          Mes réservations
+        </a>
+      </p>
+    </div>
+  `;
+}
+
 export function testEmail(recipientName: string | null) {
   return `
     <h1>Test d'envoi LoueTonMatos</h1>

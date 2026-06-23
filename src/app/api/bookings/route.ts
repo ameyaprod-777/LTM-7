@@ -15,6 +15,12 @@ import {
   paymentsUnavailableMessage,
   stripeEnabled,
 } from "@/lib/stripe-config";
+import {
+  sendEmail,
+  bookingRequestEmail,
+  areEmailNotificationsEnabled,
+  isDeliverableEmail,
+} from "@/lib/email";
 
 export async function GET(req: Request) {
   const auth = await requireMemberApi();
@@ -203,6 +209,11 @@ export async function POST(req: Request) {
   const booking = bookingResult.booking;
   const conversationId = bookingResult.conversationId;
 
+  const lister = await prisma.user.findUnique({
+    where: { id: listing.ownerId },
+    select: { email: true, name: true },
+  });
+
   await createNotification({
     userId: listing.ownerId,
     type: "NEW_BOOKING",
@@ -210,6 +221,25 @@ export async function POST(req: Request) {
     body: `${days} jour(s) — ${(totalAmount / 100).toFixed(0)} € · en attente de votre accord`,
     link: `/dashboard/bookings?role=lister`,
   });
+
+  if (areEmailNotificationsEnabled() && lister && isDeliverableEmail(lister.email)) {
+    const renter = await prisma.user.findUnique({
+      where: { id: auth.session.user.id },
+      select: { name: true },
+    });
+    await sendEmail({
+      to: lister.email!,
+      subject: `Nouvelle demande de location — ${listing.title}`,
+      html: bookingRequestEmail(
+        lister.name ?? "Loueur",
+        renter?.name ?? "Un membre",
+        listing.title,
+        startDate,
+        endDate,
+        (totalAmount / 100).toFixed(0)
+      ),
+    });
+  }
 
   return NextResponse.json(
     {

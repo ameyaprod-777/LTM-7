@@ -3,6 +3,13 @@ import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
+import {
+  sendEmail,
+  bookingConfirmedRenterEmail,
+  bookingConfirmedListerEmail,
+  areEmailNotificationsEnabled,
+  isDeliverableEmail,
+} from "@/lib/email";
 
 export async function POST(req: Request) {
   if (!stripe) {
@@ -83,6 +90,11 @@ export async function POST(req: Request) {
         });
         const booking = await prisma.booking.findUnique({
           where: { id: bookingId },
+          include: {
+            listing: { select: { title: true } },
+            lister: { select: { email: true, name: true } },
+            renter: { select: { email: true, name: true } },
+          },
         });
         if (booking) {
           await createNotification({
@@ -97,6 +109,40 @@ export async function POST(req: Request) {
             title: "Paiement confirmé",
             link: `/dashboard/bookings`,
           });
+
+          if (areEmailNotificationsEnabled()) {
+            const startStr = booking.startDate.toLocaleDateString("fr-FR");
+            const endStr = booking.endDate.toLocaleDateString("fr-FR");
+            const netEuros = ((booking.rentalFee + booking.deliveryFee) / 100).toFixed(0);
+
+            if (isDeliverableEmail(booking.renter.email)) {
+              await sendEmail({
+                to: booking.renter.email!,
+                subject: `Réservation confirmée — ${booking.listing.title}`,
+                html: bookingConfirmedRenterEmail(
+                  booking.renter.name ?? "Locataire",
+                  booking.listing.title,
+                  startStr,
+                  endStr,
+                  booking.lister.name ?? "Loueur"
+                ),
+              });
+            }
+            if (isDeliverableEmail(booking.lister.email)) {
+              await sendEmail({
+                to: booking.lister.email!,
+                subject: `Paiement reçu — ${booking.listing.title}`,
+                html: bookingConfirmedListerEmail(
+                  booking.lister.name ?? "Loueur",
+                  booking.listing.title,
+                  startStr,
+                  endStr,
+                  booking.renter.name ?? "Locataire",
+                  netEuros
+                ),
+              });
+            }
+          }
         }
       }
       break;
