@@ -1,0 +1,899 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PENDING
+  MEMBER
+  MODERATOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum ApplicationStatus {
+  PENDING
+  INCOMPLETE
+  APPROVED
+  REJECTED
+}
+
+enum KycDocumentType {
+  ID_CARD_FRONT
+  ID_CARD_BACK
+  PASSPORT
+  DRIVERS_LICENSE
+  PROOF_OF_ADDRESS
+  OTHER
+}
+
+enum CreativeDomain {
+  FILMMAKER
+  PHOTOGRAPHER
+  SOUND_ENGINEER
+  VIDEOGRAPHER
+  LIGHTING_TECH
+  EDITOR
+  PRODUCER
+  OTHER
+}
+
+enum ListingCategory {
+  CAMERA
+  LENS
+  LIGHTING
+  SOUND
+  STABILIZER
+  DRONE
+  ACCESSORIES
+}
+
+enum ConditionRating {
+  NEW
+  EXCELLENT
+  GOOD
+  FAIR
+}
+
+enum DeliveryOption {
+  PICKUP_ONLY
+  DELIVERY_AVAILABLE
+  BOTH
+}
+
+enum DeliveryPricingType {
+  FLAT
+  PER_KM
+}
+
+enum DeliverySlot {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+enum CancellationPolicy {
+  FLEXIBLE
+  MODERATE
+  STRICT
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  HELD
+  RELEASED
+  REFUNDED
+  FAILED
+}
+
+enum DeliveryTaskStatus {
+  PENDING
+  SCHEDULED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+}
+
+enum DeliveryTaskType {
+  OUTBOUND
+  RETURN
+}
+
+enum ForumSection {
+  GENERAL
+  MATERIEL_TECH
+  PROJETS_CASTING
+  CONSEILS_ASTUCES
+  PETITES_ANNONCES
+}
+
+enum ForumPostType {
+  ACTU
+  PROJECT
+  NEED
+}
+
+enum NotificationType {
+  MEMBERSHIP_APPROVED
+  MEMBERSHIP_REJECTED
+  ADMIN_NEW_APPLICATION
+  NEW_BOOKING
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  PAYMENT_RECEIVED
+  NEW_MESSAGE
+  NEW_REVIEW
+  REVIEW_REMINDER
+  TICKET_NEW
+  TICKET_REPLY
+  INVITATION_SENT
+  INVITATION_ACCEPTED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  TECHNICAL
+  BOOKING_DISPUTE
+  ACCOUNT
+  BILLING
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  REMOVED
+}
+
+enum ServiceCategory {
+  DRONE_FPV_PILOT
+  DIRECTOR_OF_PHOTOGRAPHY
+  CAMERA_OPERATOR
+  STEADICAM_OPERATOR
+  SOUND_RECORDIST
+  GAFFER
+  EDITOR
+  COLORIST
+  PRODUCER
+  MAKEUP_ARTIST
+  OTHER
+}
+
+enum ServiceRateType {
+  HOURLY
+  DAILY
+  PROJECT
+}
+
+enum ServiceQuoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum ServiceQuotePaymentMethod {
+  STRIPE
+  CASH
+}
+
+enum ServicePaymentTiming {
+  UPFRONT
+  AFTER_SERVICE
+}
+
+// ─── Auth (NextAuth) ─────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String?
+  image         String?
+  role          UserRole   @default(PENDING)
+  status        UserStatus @default(ACTIVE)
+
+  city          String?
+  neighborhood  String?
+  bio           String?        @db.Text
+  creativeDomain CreativeDomain?
+  portfolioUrl  String?
+  instagramUrl  String?
+  websiteUrl    String?
+
+  verifiedIdentity Boolean  @default(false)
+  kycVerifiedAt    DateTime?
+  identityExpiresAt DateTime? @db.Date
+  memberSince      DateTime?
+  stripeAccountId       String?
+  stripeChargesEnabled  Boolean   @default(false)
+  stripePayoutsEnabled  Boolean   @default(false)
+  stripeOnboardingAt    DateTime?
+
+  responseRate      Float?
+  avgResponseTimeMs Int?
+
+  accounts      Account[]
+  sessions      Session[]
+  application   MembershipApplication?
+  listings      Listing[]
+  services      Service[]
+  serviceQuotesAsClient   ServiceQuote[] @relation("ServiceQuoteClient")
+  serviceQuotesAsProvider ServiceQuote[] @relation("ServiceQuoteProvider")
+  projects      Project[]
+  bookingsAsRenter  Booking[] @relation("RenterBookings")
+  bookingsAsLister  Booking[] @relation("ListerBookings")
+  reviewsGiven      Review[]  @relation("ReviewsGiven")
+  reviewsReceived   Review[]  @relation("ReviewsReceived")
+  messages          Message[]
+  messageReports    MessageReport[] @relation("MessageReports")
+  conversationParticipants ConversationParticipant[]
+  forumPosts        ForumPost[]
+  forumPostReports  ForumPostReport[] @relation("ForumPostReports")
+  auditLogs         AuditLog[]
+  forumReplies      ForumReply[]
+  forumReactions    ForumReaction[]
+  notifications     Notification[]
+  supportTickets    SupportTicket[]
+  assignedTickets   SupportTicket[] @relation("AssignedTickets")
+  invitationsSent   Invitation[] @relation("InvitationsSent")
+  invitationUsed    Invitation?  @relation("InvitationUsed")
+  reviewedApplications MembershipApplication[] @relation("ReviewedBy")
+  kycDocuments          KycDocument[]
+  conversationsInitiated Conversation[] @relation("ConversationInitiated")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Membership ──────────────────────────────────────────────────────────────
+
+model MembershipApplication {
+  id          String            @id @default(cuid())
+  userId      String            @unique
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  motivation  String            @db.Text
+  status      ApplicationStatus @default(PENDING)
+  adminMessage String?          @db.Text
+  adminNotes  String?           @db.Text
+  kycPurgeAt  DateTime?
+  reviewedById String?
+  reviewedBy   User?            @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  invitationId String?          @unique
+  invitation   Invitation?      @relation(fields: [invitationId], references: [id])
+  kycDocuments KycDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model KycDocument {
+  id            String          @id @default(cuid())
+  applicationId String
+  application   MembershipApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          KycDocumentType
+  originalName  String
+  mimeType      String
+  storagePath   String
+  sizeBytes     Int
+
+  createdAt DateTime @default(now())
+
+  @@index([applicationId])
+  @@index([userId])
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  token       String    @unique @default(cuid())
+  createdById String
+  createdBy   User      @relation("InvitationsSent", fields: [createdById], references: [id])
+  usedById    String?   @unique
+  usedBy      User?     @relation("InvitationUsed", fields: [usedById], references: [id])
+  expiresAt   DateTime
+  usedAt      DateTime?
+  application MembershipApplication?
+
+  createdAt DateTime @default(now())
+}
+
+// ─── Listings ────────────────────────────────────────────────────────────────
+
+model Listing {
+  id          String          @id @default(cuid())
+  ownerId     String
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title       String
+  description String          @db.Text
+  category    ListingCategory
+  pricePerDay Int
+  pricePerWeek Int?
+  weekendPricePerDay Int?
+  viewCount Int @default(0)
+  condition   ConditionRating
+  city        String
+  neighborhood String?
+  latitude    Float?
+  longitude   Float?
+  deliveryOption DeliveryOption @default(PICKUP_ONLY)
+  deliveryRadiusKm Float?
+  deliveryPricingType DeliveryPricingType?
+  deliveryFlatFee Int?
+  deliveryFeePerKm Float?
+  deliverySlots DeliverySlot[]
+  cancellationPolicy CancellationPolicy @default(MODERATE)
+  status      ListingStatus   @default(DRAFT)
+
+  photos      ListingPhoto[]
+  blockedDates BlockedDate[]
+  bookings    Booking[]
+  tags        ListingTag[]
+  reports     SupportTicket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, city, status])
+}
+
+model ListingPhoto {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model BlockedDate {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+
+  @@unique([listingId, date])
+}
+
+// ─── Services ────────────────────────────────────────────────────────────────
+
+model Service {
+  id              String          @id @default(cuid())
+  ownerId         String
+  owner           User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title           String
+  description     String          @db.Text
+  category        ServiceCategory
+  rateType        ServiceRateType   @default(DAILY)
+  priceAmount     Int
+  city            String
+  neighborhood    String?
+  experienceYears Int?
+  portfolioUrl    String?
+  status          ListingStatus   @default(ACTIVE)
+  viewCount       Int             @default(0)
+
+  photos          ServicePhoto[]
+  blockedDates    ServiceBlockedDate[]
+  quotes          ServiceQuote[]
+  conversations   Conversation[]
+  reports         SupportTicket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, city, status])
+}
+
+model ServiceBlockedDate {
+  id        String   @id @default(cuid())
+  serviceId String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+
+  @@unique([serviceId, date])
+}
+
+model ServiceQuote {
+  id          String             @id @default(cuid())
+  serviceId   String
+  service     Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      User               @relation("ServiceQuoteClient", fields: [clientId], references: [id])
+  providerId  String
+  provider    User               @relation("ServiceQuoteProvider", fields: [providerId], references: [id])
+  startDate   DateTime?          @db.Date
+  endDate     DateTime?          @db.Date
+  brief       String             @db.Text
+  proposedAmount Int?
+  status      ServiceQuoteStatus @default(PENDING)
+  providerMessage String?        @db.Text
+  scopeImageRights       Boolean @default(false)
+  scopeScheduleAgreed    Boolean @default(false)
+  scopeDeliverablesAgreed Boolean @default(false)
+  acceptServiceTerms     Boolean @default(false)
+  clientPaymentPreference ServicePaymentTiming @default(UPFRONT)
+  agreedPaymentTiming   ServicePaymentTiming?
+  conversationId String?          @unique
+  conversation   Conversation?   @relation(fields: [conversationId], references: [id])
+  payment        ServiceQuotePayment?
+  completedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceId, status])
+  @@index([providerId, status])
+  @@index([clientId])
+}
+
+model ServiceQuotePayment {
+  id              String        @id @default(cuid())
+  serviceQuoteId  String        @unique
+  serviceQuote    ServiceQuote  @relation(fields: [serviceQuoteId], references: [id], onDelete: Cascade)
+  stripePaymentId String?       @unique
+  stripeTransferId String?
+  amount          Int
+  providerAmount  Int
+  commissionFee   Int
+  method          ServiceQuotePaymentMethod?
+  status          PaymentStatus @default(PENDING)
+  failureReason   String?
+  paidAt          DateTime?
+  clientDeclaredCashAt DateTime?
+  settledAt       DateTime?
+  releasedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ServicePhoto {
+  id        String  @id @default(cuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model Tag {
+  id       String       @id @default(cuid())
+  name     String       @unique
+  listings ListingTag[]
+}
+
+model ListingTag {
+  listingId String
+  tagId     String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, tagId])
+}
+
+// ─── Bookings & Payments ─────────────────────────────────────────────────────
+
+model Booking {
+  id          String        @id @default(cuid())
+  listingId   String
+  listing     Listing       @relation(fields: [listingId], references: [id])
+  renterId    String
+  renter      User          @relation("RenterBookings", fields: [renterId], references: [id])
+  listerId    String
+  lister      User          @relation("ListerBookings", fields: [listerId], references: [id])
+  startDate   DateTime      @db.Date
+  endDate     DateTime      @db.Date
+  status      BookingStatus @default(PENDING)
+  pickupOrDelivery String?
+  deliveryAddress String?
+  rentalFee       Int
+  commissionFee   Int
+  deliveryFee     Int       @default(0)
+  totalAmount     Int
+  cancellationPolicy CancellationPolicy
+  listerApprovedAt   DateTime?
+  refundAmount       Int?
+  cancelledAt        DateTime?
+  disputedAt         DateTime?
+  disputeReason      String?   @db.Text
+  completedAt        DateTime?
+  reviewReminderSentAt DateTime?
+
+  payment     Payment?
+  deliveries  DeliveryTask[]
+  conversation Conversation?
+  reviews     Review[]
+  supportTickets SupportTicket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([renterId, listerId, status])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  bookingId       String        @unique
+  booking         Booking       @relation(fields: [bookingId], references: [id])
+  stripePaymentId  String?       @unique
+  stripeTransferId String?
+  stripeRefundId   String?
+  amount           Int
+  refundAmount     Int?
+  status           PaymentStatus @default(PENDING)
+  failureReason    String?
+  releasedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DeliveryTask {
+  id          String             @id @default(cuid())
+  bookingId   String
+  booking     Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type        DeliveryTaskType
+  status      DeliveryTaskStatus @default(PENDING)
+  address     String
+  slot        DeliverySlot?
+  contactPhone String?
+  scheduledAt DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Reviews ─────────────────────────────────────────────────────────────────
+
+model Review {
+  id               String  @id @default(cuid())
+  bookingId        String
+  booking          Booking @relation(fields: [bookingId], references: [id])
+  authorId         String
+  author           User    @relation("ReviewsGiven", fields: [authorId], references: [id])
+  targetId         String
+  target           User    @relation("ReviewsReceived", fields: [targetId], references: [id])
+  rating           Int
+  comment          String? @db.Text
+  equipmentRating  Int?
+  equipmentComment String? @db.Text
+  response         String? @db.Text
+  responseAt       DateTime?
+  flagged          Boolean @default(false)
+  flagReason       String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([bookingId, authorId])
+  @@index([targetId, flagged])
+}
+
+// ─── Messaging ───────────────────────────────────────────────────────────────
+
+model Conversation {
+  id          String   @id @default(cuid())
+  bookingId   String?  @unique
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+  serviceId   String?
+  service     Service? @relation(fields: [serviceId], references: [id])
+  serviceQuotes ServiceQuote[]
+  directKey   String?  @unique
+  initiatorId String?
+  initiator   User?    @relation("ConversationInitiated", fields: [initiatorId], references: [id])
+  participants ConversationParticipant[]
+  messages    Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceId, initiatorId])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  archivedAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId, archivedAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  body           String       @db.Text
+  readAt         DateTime?
+  attachmentUrl  String?
+  attachmentName String?
+  attachmentMime String?
+  flagged        Boolean      @default(false)
+  flagReason     String?
+  deletedAt      DateTime?
+
+  reports MessageReport[]
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([conversationId, readAt])
+  @@index([conversationId, deletedAt])
+}
+
+model MessageReport {
+  id         String   @id @default(cuid())
+  messageId  String
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User     @relation("MessageReports", fields: [reporterId], references: [id])
+  reason     String   @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
+}
+
+// ─── Forum ───────────────────────────────────────────────────────────────────
+
+model ForumPost {
+  id          String         @id @default(cuid())
+  authorId    String
+  author      User           @relation(fields: [authorId], references: [id])
+  section     ForumSection
+  postType    ForumPostType  @default(ACTU)
+  title       String
+  body        String         @db.Text
+  tags        String[]
+  city        String?
+  eventAt     DateTime?
+  projectUrl  String?
+  coverImage  String?
+  pinned        Boolean        @default(false)
+  locked        Boolean        @default(false)
+  flagged       Boolean        @default(false)
+  authorHidden  Boolean        @default(false)
+  flagReason  String?
+  editedAt    DateTime?
+
+  replies     ForumReply[]
+  reactions   ForumReaction[]
+  reports     ForumPostReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([section, createdAt])
+  @@index([postType, createdAt])
+}
+
+model ForumPostReport {
+  id         String    @id @default(cuid())
+  postId     String
+  post       ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User      @relation("ForumPostReports", fields: [reporterId], references: [id])
+  reason     String    @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model ForumReply {
+  id       String    @id @default(cuid())
+  postId   String
+  post     ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User      @relation(fields: [authorId], references: [id])
+  body     String    @db.Text
+  editedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ForumReaction {
+  id       String    @id @default(cuid())
+  postId   String
+  post     ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+// ─── Notifications & Support ─────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  read      Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model SupportTicket {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  listingId    String?
+  listing      Listing?       @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  serviceId    String?
+  service      Service?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  bookingId    String?
+  booking      Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  assignedToId String?
+  assignedTo   User?          @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  subject      String
+  category     TicketCategory @default(OTHER)
+  priority     TicketPriority @default(NORMAL)
+  status       TicketStatus   @default(OPEN)
+  messages     TicketMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listingId])
+  @@index([bookingId])
+  @@index([assignedToId, status])
+  @@index([category, status])
+}
+
+model TicketMessage {
+  id             String        @id @default(cuid())
+  ticketId       String
+  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId       String?
+  body           String        @db.Text
+  isStaff        Boolean       @default(false)
+  attachmentUrl  String?
+  attachmentName String?
+  attachmentMime String?
+
+  createdAt DateTime @default(now())
+}
+
+// ─── Profile Projects ────────────────────────────────────────────────────────
+
+model Project {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String? @db.Text
+  coverImage  String?
+  tags        String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Platform Settings ───────────────────────────────────────────────────────
+
+model PlatformSettings {
+  id                    String  @id @default("default")
+  commissionRate        Float   @default(0.12)
+  invitationsEnabled    Boolean @default(true)
+  registrationClosed    Boolean @default(false)
+  maintenanceBanner     String? @db.Text
+  maintenanceBannerEnabled Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  ipAddress  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([targetType, targetId])
+}
+
+model DeliveryZone {
+  id        String  @id @default(cuid())
+  name      String
+  city      String
+  districts String[]
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}

@@ -1,101 +1,261 @@
-import Image from "next/image";
+import Link from "next/link";
+import {
+  Camera,
+  Shield,
+  Users,
+  ArrowRight,
+  Star,
+  Plus,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getAccessContext } from "@/lib/session";
+import { canViewListingDetails } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
+import { ListingCard } from "@/components/listings/listing-card";
 
-export default function Home() {
+const categories = [
+  { label: "Caméras", slug: "CAMERA" },
+  { label: "Optiques", slug: "LENS" },
+  { label: "Éclairage", slug: "LIGHTING" },
+  { label: "Son", slug: "SOUND" },
+  { label: "Stabilisation", slug: "STABILIZER" },
+  { label: "Drones", slug: "DRONE" },
+  { label: "Accessoires", slug: "ACCESSORIES" },
+];
+
+const steps = [
+  {
+    icon: Users,
+    title: "Rejoignez la communauté",
+    desc: "Candidature validée par nos admins pour garantir un réseau de confiance.",
+  },
+  {
+    icon: Camera,
+    title: "Proposez ou louez",
+    desc: "Publiez votre matériel ou réservez celui d'un autre créatif près de chez vous.",
+  },
+  {
+    icon: Shield,
+    title: "Louez en confiance",
+    desc: "Profils vérifiés, avis mutuels et paiement sécurisé via Stripe.",
+  },
+];
+
+export default async function HomePage() {
+  const { user, tier } = await getAccessContext();
+  const isMember = canViewListingDetails(tier);
+  const isLoggedIn = !!user;
+
+  const listings = await prisma.listing.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      photos: { orderBy: { order: "asc" }, take: 1 },
+    },
+    orderBy: { createdAt: "desc" },
+    take: isMember ? 6 : 3,
+  });
+
+  const listingVariant = isMember ? "full" : isLoggedIn ? "preview" : "teaser";
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <>
+      <section className="relative overflow-hidden bg-anthracite text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent/20 via-transparent to-transparent" />
+        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+          <div className="max-w-2xl">
+            {isMember ? (
+              <>
+                <p className="mb-4 text-sm font-medium uppercase tracking-widest text-accent">
+                  Bienvenue dans la communauté
+                </p>
+                <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+                  Bonjour{user?.name ? `, ${user.name.split(" ")[0]}` : ""}{" "}
+                  <span className="text-accent">prêt à créer ?</span>
+                </h1>
+                <p className="mt-6 text-lg text-anthracite-300">
+                  Parcourez le matériel disponible, réservez en quelques clics ou
+                  proposez le vôtre à la communauté.
+                </p>
+                <div className="mt-10 flex flex-wrap gap-4">
+                  <Link href="/listings">
+                    <Button size="lg">
+                      Voir toutes les annonces
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/listings/new">
+                    <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Proposer du matériel
+                    </Button>
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-4 text-sm font-medium uppercase tracking-widest text-accent">
+                  Location P2P audiovisuelle
+                </p>
+                <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+                  Louez entre créatifs,{" "}
+                  <span className="text-accent">en confiance.</span>
+                </h1>
+                <p className="mt-6 text-lg text-anthracite-300">
+                  LoueTonMatos connecte cinéastes, photographes et techniciens pour
+                  partager du matériel professionnel — sans friction, entre pairs de
+                  confiance.
+                </p>
+                <div className="mt-10 flex flex-wrap gap-4">
+                  {isLoggedIn ? (
+                    <Link href="/dashboard">
+                      <Button size="lg">
+                        Mon tableau de bord
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link href="/register">
+                      <Button size="lg">
+                        Rejoindre la communauté
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                  )}
+                  <Link href="/listings">
+                    <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                      Voir les annonces
+                    </Button>
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </section>
+
+      <section className="border-b border-anthracite-100 bg-white py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-center text-sm font-semibold uppercase tracking-wider text-anthracite-400">
+            Catégories populaires
+          </h2>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            {categories.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={isMember ? `/listings?category=${cat.slug}` : "/listings"}
+                className="rounded-full border border-anthracite-200 px-5 py-2 text-sm font-medium text-anthracite transition-colors hover:border-accent hover:text-accent"
+              >
+                {cat.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-anthracite-50 py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-3xl font-bold text-anthracite">
+                {isMember ? "Dernières annonces" : "Aperçu des annonces"}
+              </h2>
+              <p className="mt-2 text-sm text-anthracite-500">
+                {isMember
+                  ? "Réservez du matériel près de chez vous — mis à jour en temps réel."
+                  : isLoggedIn
+                    ? "Votre candidature est en cours — les prix seront visibles après validation."
+                    : "Inscrivez-vous pour voir les détails et réserver du matériel."}
+              </p>
+            </div>
+            {isMember && (
+              <Link href="/listings">
+                <Button variant="outline">
+                  Tout voir
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            )}
+          </div>
+
+          {listings.length === 0 ? (
+            <p className="mt-12 text-center text-anthracite-500">
+              Aucune annonce pour le moment.
+              {isMember && (
+                <>
+                  {" "}
+                  <Link href="/listings/new" className="text-accent hover:underline">
+                    Soyez le premier à publier !
+                  </Link>
+                </>
+              )}
+            </p>
+          ) : (
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {listings.map((listing) => (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  variant={listingVariant}
+                />
+              ))}
+            </div>
+          )}
+
+          {!isMember && (
+            <div className="mt-10 text-center">
+              <Link href={isLoggedIn ? "/apply" : "/register"}>
+                <Button>
+                  {isLoggedIn ? "Compléter ma candidature" : "Rejoindre pour débloquer"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {!isMember && (
+        <section className="py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 className="text-center text-3xl font-bold text-anthracite">
+              Comment ça marche
+            </h2>
+            <div className="mt-12 grid gap-8 md:grid-cols-3">
+              {steps.map((step) => (
+                <div
+                  key={step.title}
+                  className="rounded-2xl border border-anthracite-100 p-8 text-center"
+                >
+                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-accent-muted text-accent">
+                    <step.icon className="h-6 w-6" />
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold text-anthracite">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-anthracite-500">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="py-20">
+        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
+          <div className="flex justify-center gap-1 text-accent">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} className="h-5 w-5 fill-current" />
+            ))}
+          </div>
+          <blockquote className="mt-4 text-xl font-medium text-anthracite">
+            &ldquo;Enfin une plateforme pensée par et pour les créatifs. Zéro
+            caution abusive, juste une vraie communauté.&rdquo;
+          </blockquote>
+          <p className="mt-3 text-sm text-anthracite-500">
+            — Marie L., Directrice photo, Lyon
+          </p>
+        </div>
+      </section>
+    </>
   );
 }

@@ -1,0 +1,304 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import Pusher from "pusher-js";
+import { Paperclip, Flag, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MESSAGE_REPLY_TEMPLATES } from "@/lib/message-templates";
+import { formatDate } from "@/lib/utils";
+
+type Message = {
+  id: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+  deletedAt?: string | null;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
+  attachmentMime: string | null;
+  sender: { id: string; name: string | null };
+};
+
+type Props = {
+  conversationId: string;
+  currentUserId: string;
+  pusherKey?: string | null;
+  pusherCluster?: string | null;
+};
+
+export function ChatView({
+  conversationId,
+  currentUserId,
+  pusherKey,
+  pusherCluster = "eu",
+}: Props) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    url: string;
+    name: string;
+    mime: string;
+  } | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/messages/${conversationId}`);
+    if (res.ok) {
+      const data = (await res.json()) as Message[];
+      setMessages(data);
+      window.dispatchEvent(new CustomEvent("ltm-messages-read"));
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!pusherKey) {
+      const id = setInterval(() => void load(), 5000);
+      return () => clearInterval(id);
+    }
+
+    const pusher = new Pusher(pusherKey, {
+      cluster: pusherCluster ?? "eu",
+      authEndpoint: "/api/pusher/auth",
+    });
+
+    const channel = pusher.subscribe(`private-conversation-${conversationId}`);
+    channel.bind("new-message", () => {
+      void load();
+    });
+    channel.bind("message-deleted", (payload: { messageId: string }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === payload.messageId
+            ? {
+                ...m,
+                body: "[Message supprimé]",
+                deletedAt: new Date().toISOString(),
+                attachmentUrl: null,
+                attachmentName: null,
+                attachmentMime: null,
+              }
+            : m
+        )
+      );
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(`private-conversation-${conversationId}`);
+      pusher.disconnect();
+    };
+  }, [pusherKey, pusherCluster, conversationId, load]);
+
+  const send = async () => {
+    if (!body.trim() && !pendingAttachment) return;
+    setLoading(true);
+    await fetch("/api/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationId,
+        body,
+        attachmentUrl: pendingAttachment?.url,
+        attachmentName: pendingAttachment?.name,
+        attachmentMime: pendingAttachment?.mime,
+      }),
+    });
+    setBody("");
+    setPendingAttachment(null);
+    setLoading(false);
+    void load();
+  };
+
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/messages/${conversationId}/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    const json = await res.json();
+    setUploading(false);
+    if (res.ok) {
+      setPendingAttachment({
+        url: json.url,
+        name: json.name,
+        mime: json.mime,
+      });
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!window.confirm("Supprimer ce message ?")) return;
+    const res = await fetch(`/api/messages/item/${messageId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                body: "[Message supprimé]",
+                deletedAt: new Date().toISOString(),
+                attachmentUrl: null,
+                attachmentName: null,
+                attachmentMime: null,
+              }
+            : m
+        )
+      );
+    }
+  };
+
+  const reportMessage = async (messageId: string) => {
+    const reason = window.prompt("Motif du signalement (min. 10 caractères)");
+    if (!reason || reason.length < 10) return;
+    await fetch(`/api/messages/report/${messageId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+  };
+
+  return (
+    <div className="flex h-[560px] flex-col rounded-xl border border-anthracite-100">
+      <div className="flex flex-wrap gap-2 border-b border-anthracite-50 p-2">
+        {MESSAGE_REPLY_TEMPLATES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setBody(t.body)}
+            className="rounded-full bg-anthracite-50 px-2.5 py-1 text-xs text-anthracite-600 hover:bg-accent-muted hover:text-accent"
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {messages.map((m) => {
+          const mine = m.sender.id === currentUserId;
+          const deleted = !!m.deletedAt || m.body === "[Message supprimé]";
+          return (
+            <div
+              key={m.id}
+              className={`group max-w-[85%] ${mine ? "ml-auto" : ""}`}
+            >
+              <div
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  deleted
+                    ? "bg-anthracite-50 italic text-anthracite-400"
+                    : mine
+                      ? "bg-accent text-white"
+                      : "bg-anthracite-100 text-anthracite"
+                }`}
+              >
+                <p className="text-xs opacity-70">{m.sender.name}</p>
+                {m.body && <p className="whitespace-pre-wrap">{m.body}</p>}
+                {m.attachmentUrl && (
+                  <div className="mt-2">
+                    {m.attachmentMime?.startsWith("image/") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.attachmentUrl}
+                        alt={m.attachmentName ?? ""}
+                        className="max-h-48 rounded-lg"
+                      />
+                    ) : (
+                      <a
+                        href={m.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`underline ${mine ? "text-white" : "text-accent"}`}
+                      >
+                        {m.attachmentName ?? "Pièce jointe PDF"}
+                      </a>
+                    )}
+                  </div>
+                )}
+                <p className="mt-1 text-[10px] opacity-60">
+                  {formatDate(m.createdAt)}
+                  {mine && m.readAt && " · Lu"}
+                </p>
+              </div>
+              <div className="mt-1 flex gap-2 opacity-0 transition group-hover:opacity-100">
+                {mine && !deleted && (
+                  <button
+                    type="button"
+                    onClick={() => void deleteMessage(m.id)}
+                    className="flex items-center gap-1 text-[10px] text-anthracite-400 hover:text-red-600"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Supprimer
+                  </button>
+                )}
+                {!mine && !deleted && (
+                  <button
+                    type="button"
+                    onClick={() => void reportMessage(m.id)}
+                    className="flex items-center gap-1 text-[10px] text-anthracite-400"
+                  >
+                    <Flag className="h-3 w-3" />
+                    Signaler
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {pendingAttachment && (
+        <p className="border-t px-3 py-2 text-xs text-anthracite-500">
+          Pièce jointe : {pendingAttachment.name}
+          <button
+            type="button"
+            className="ml-2 text-red-500"
+            onClick={() => setPendingAttachment(null)}
+          >
+            Retirer
+          </button>
+        </p>
+      )}
+
+      <div className="flex gap-2 border-t p-3">
+        <label className="flex cursor-pointer items-center rounded-lg border border-anthracite-200 px-2 hover:bg-anthracite-50">
+          <Paperclip className="h-4 w-4 text-anthracite-500" />
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void uploadFile(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <input
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
+          className="flex-1 rounded-lg border px-3 py-2 text-sm"
+          placeholder="Votre message…"
+        />
+        <Button onClick={send} loading={loading || uploading}>
+          Envoyer
+        </Button>
+      </div>
+    </div>
+  );
+}

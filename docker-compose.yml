@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: louetonmatos-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: louetonmatos
+      POSTGRES_PASSWORD: louetonmatos
+      POSTGRES_DB: louetonmatos
+    volumes:
+      - louetonmatos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U louetonmatos -d louetonmatos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  louetonmatos_pgdata:
