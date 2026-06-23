@@ -1,4 +1,9 @@
 import { Resend } from "resend";
+import {
+  generateInvoicePdf,
+  buildInvoiceNumber,
+  type InvoiceData,
+} from "@/lib/invoice-pdf";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -23,14 +28,18 @@ export function isDeliverableEmail(email: string | null | undefined) {
   return Boolean(email && !email.endsWith("@louetonmatos.invalid"));
 }
 
+type Attachment = { filename: string; content: Buffer };
+
 export async function sendEmail({
   to,
   subject,
   html,
+  attachments,
 }: {
   to: string;
   subject: string;
   html: string;
+  attachments?: Attachment[];
 }) {
   if (!resend) {
     if (process.env.NODE_ENV === "development") {
@@ -45,6 +54,10 @@ export async function sendEmail({
     replyTo: REPLY_TO,
     subject,
     html,
+    attachments: attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+    })),
   });
 
   if (error) {
@@ -335,4 +348,81 @@ export function emailVerificationEmail(name: string | null, token: string, email
     <p><a href="${link}">Vérifier mon email</a></p>
     <p>Ce lien expire dans 24 heures.</p>
   `;
+}
+
+// ─── Invoice sender ───────────────────────────────────────────────────────────
+
+export async function sendBookingInvoice(invoice: InvoiceData) {
+  if (!areEmailNotificationsEnabled()) return;
+
+  const number = buildInvoiceNumber(invoice.booking.id, invoice.issuedAt);
+  const fullInvoice: InvoiceData = { ...invoice, invoiceNumber: number };
+
+  let pdfBuffer: Buffer | undefined;
+  try {
+    pdfBuffer = await generateInvoicePdf(fullInvoice);
+  } catch (err) {
+    console.error("[invoice] PDF generation failed", err);
+    return;
+  }
+
+  const attachment = {
+    filename: `facture-${number}.pdf`,
+    content: pdfBuffer,
+  };
+
+  const { booking, renter, lister } = invoice;
+  const startStr = booking.startDate.toLocaleDateString("fr-FR");
+  const endStr = booking.endDate.toLocaleDateString("fr-FR");
+  const totalStr = (booking.totalAmount / 100).toFixed(0);
+  const netStr = ((booking.rentalFee + booking.deliveryFee) / 100).toFixed(0);
+
+  if (isDeliverableEmail(renter.email)) {
+    await sendEmail({
+      to: renter.email,
+      subject: `Votre facture LoueTonMatos — ${booking.listingTitle}`,
+      html: `
+        <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
+          <h1 style="font-size:20px;margin:0 0 12px">Votre facture est disponible</h1>
+          <p>Bonjour ${renter.name.replace(/</g, "&lt;")},</p>
+          <p>La location de <strong>${booking.listingTitle.replace(/</g, "&lt;")}</strong>
+             du ${startStr} au ${endStr} est confirmée.</p>
+          <p>Retrouvez votre facture (N° ${number}) en pièce jointe.
+             <strong>Total réglé : ${totalStr} €</strong>.</p>
+          <p style="margin:24px 0 0">
+            <a href="${appUrl("/dashboard/bookings")}"
+               style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+              Voir ma réservation
+            </a>
+          </p>
+        </div>
+      `,
+      attachments: [attachment],
+    });
+  }
+
+  if (isDeliverableEmail(lister.email)) {
+    await sendEmail({
+      to: lister.email,
+      subject: `Paiement reçu — ${booking.listingTitle}`,
+      html: `
+        <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
+          <h1 style="font-size:20px;margin:0 0 12px">Paiement reçu ✓</h1>
+          <p>Bonjour ${lister.name.replace(/</g, "&lt;")},</p>
+          <p>Le paiement pour <strong>${booking.listingTitle.replace(/</g, "&lt;")}</strong>
+             (${startStr} → ${endStr}) a bien été encaissé.</p>
+          <p>Votre revenu net : <strong>${netStr} €</strong>
+             (versé à la clôture de la location).</p>
+          <p>La facture locataire (N° ${number}) est en pièce jointe pour vos archives.</p>
+          <p style="margin:24px 0 0">
+            <a href="${appUrl("/dashboard/bookings?role=lister")}"
+               style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+              Voir mes locations
+            </a>
+          </p>
+        </div>
+      `,
+      attachments: [attachment],
+    });
+  }
 }

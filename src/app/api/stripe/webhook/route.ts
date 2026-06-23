@@ -3,13 +3,7 @@ import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
-import {
-  sendEmail,
-  bookingConfirmedRenterEmail,
-  bookingConfirmedListerEmail,
-  areEmailNotificationsEnabled,
-  isDeliverableEmail,
-} from "@/lib/email";
+import { sendBookingInvoice } from "@/lib/email";
 
 export async function POST(req: Request) {
   if (!stripe) {
@@ -110,39 +104,37 @@ export async function POST(req: Request) {
             link: `/dashboard/bookings`,
           });
 
-          if (areEmailNotificationsEnabled()) {
-            const startStr = booking.startDate.toLocaleDateString("fr-FR");
-            const endStr = booking.endDate.toLocaleDateString("fr-FR");
-            const netEuros = ((booking.rentalFee + booking.deliveryFee) / 100).toFixed(0);
-
-            if (isDeliverableEmail(booking.renter.email)) {
-              await sendEmail({
-                to: booking.renter.email!,
-                subject: `Réservation confirmée — ${booking.listing.title}`,
-                html: bookingConfirmedRenterEmail(
-                  booking.renter.name ?? "Locataire",
-                  booking.listing.title,
-                  startStr,
-                  endStr,
-                  booking.lister.name ?? "Loueur"
-                ),
-              });
-            }
-            if (isDeliverableEmail(booking.lister.email)) {
-              await sendEmail({
-                to: booking.lister.email!,
-                subject: `Paiement reçu — ${booking.listing.title}`,
-                html: bookingConfirmedListerEmail(
-                  booking.lister.name ?? "Loueur",
-                  booking.listing.title,
-                  startStr,
-                  endStr,
-                  booking.renter.name ?? "Locataire",
-                  netEuros
-                ),
-              });
-            }
-          }
+          await sendBookingInvoice({
+            invoiceNumber: "",
+            issuedAt: new Date(),
+            booking: {
+              id: bookingId,
+              startDate: booking.startDate,
+              endDate: booking.endDate,
+              listingTitle: booking.listing.title,
+              rentalFee: booking.rentalFee,
+              deliveryFee: booking.deliveryFee,
+              commissionFee: booking.commissionFee,
+              totalAmount: booking.totalAmount,
+              cancellationPolicy: booking.cancellationPolicy,
+            },
+            renter: {
+              name: booking.renter.name ?? "Locataire",
+              email: booking.renter.email ?? "",
+              city: null,
+            },
+            lister: {
+              name: booking.lister.name ?? "Loueur",
+              email: booking.lister.email ?? "",
+              city: null,
+            },
+            platform: {
+              name: process.env.NEXT_PUBLIC_LEGAL_COMPANY_NAME ?? "LoueTonMatos",
+              email: process.env.NEXT_PUBLIC_LEGAL_EMAIL ?? "contact@louetonmatos.fr",
+              address: process.env.NEXT_PUBLIC_LEGAL_ADDRESS ?? "France",
+              siret: process.env.NEXT_PUBLIC_LEGAL_SIRET ?? null,
+            },
+          });
         }
       }
       break;

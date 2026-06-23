@@ -19,6 +19,7 @@ import {
   sendEmail,
   bookingApprovedEmail,
   bookingCancelledEmail,
+  sendBookingInvoice,
   areEmailNotificationsEnabled,
   isDeliverableEmail,
 } from "@/lib/email";
@@ -143,6 +144,39 @@ export async function PATCH(
         title: "Réservation confirmée (mode dev)",
         link: `/dashboard/bookings`,
       });
+
+      await sendBookingInvoice({
+        invoiceNumber: "",
+        issuedAt: new Date(),
+        booking: {
+          id: params.id,
+          startDate: booking.startDate,
+          endDate: booking.endDate,
+          listingTitle: booking.listing.title,
+          rentalFee: booking.rentalFee,
+          deliveryFee: booking.deliveryFee,
+          commissionFee: booking.commissionFee,
+          totalAmount: booking.totalAmount,
+          cancellationPolicy: booking.cancellationPolicy,
+        },
+        renter: {
+          name: booking.renter.name ?? "Locataire",
+          email: booking.renter.email ?? "",
+          city: null,
+        },
+        lister: {
+          name: booking.lister.name ?? "Loueur",
+          email: booking.lister.email ?? "",
+          city: null,
+        },
+        platform: {
+          name: process.env.NEXT_PUBLIC_LEGAL_COMPANY_NAME ?? "LoueTonMatos",
+          email: process.env.NEXT_PUBLIC_LEGAL_EMAIL ?? "contact@louetonmatos.fr",
+          address: process.env.NEXT_PUBLIC_LEGAL_ADDRESS ?? "France",
+          siret: process.env.NEXT_PUBLIC_LEGAL_SIRET ?? null,
+        },
+      });
+
       return NextResponse.json({ ok: true, devConfirmed: true });
     }
 
