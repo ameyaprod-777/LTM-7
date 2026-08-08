@@ -20,9 +20,9 @@ $COMPOSE up -d app
 
 echo "==> Health check"
 sleep 5
-if curl -sf "http://127.0.0.1:3000/api/health" >/dev/null; then
+if curl -sf "http://127.0.0.1:3007/api/health" >/dev/null; then
   echo "OK — /api/health répond"
-  curl -s "http://127.0.0.1:3000/api/health" | head -c 500
+  curl -s "http://127.0.0.1:3007/api/health" | head -c 500
   echo ""
 else
   echo "WARN — /api/health ne répond pas encore (vérifiez les logs)"

@@ -47,6 +47,12 @@ Test local :
 curl -s http://localhost:3000/api/health | jq
 ```
 
+Sur le VPS (port hôte Docker) :
+
+```bash
+curl -s http://127.0.0.1:3007/api/health | jq
+```
+
 ---
 
 ## 2. Sentry (erreurs)

@@ -68,7 +68,7 @@ Internet
 [ Nginx ou Caddy sur l'hôte ]  ← ports 80/443, Let's Encrypt
     │  reverse proxy
     ▼
-[ Conteneur app Next.js ]      ← 127.0.0.1:3000 uniquement
+[ Conteneur app Next.js ]      ← 127.0.0.1:3007 uniquement
     │
     ├── réseau Docker interne ──► [ PostgreSQL 16 ]
     │
@@ -264,7 +264,7 @@ sudo ufw status
 sudo mkdir -p /opt/louetonmatos
 sudo chown deploy:deploy /opt/louetonmatos
 cd /opt/louetonmatos
-git clone https://github.com/VOTRE_ORG/LTM.git .
+git clone https://github.com/ameyaprod-777/LTM-7.git .
 cp deploy/.env.production.example .env.production
 nano .env.production   # remplir TOUS les secrets (voir annexe)
 ```
@@ -307,7 +307,7 @@ docker compose -f docker-compose.prod.yml logs -f app --tail=50
 ```
 
 - [ ] Conteneur `db` healthy
-- [ ] Conteneur `app` écoute sur `127.0.0.1:3000` (pas exposé au monde entier)
+- [ ] Conteneur `app` écoute sur `127.0.0.1:3007` (pas exposé au monde entier)
 
 ### Étape 1.6 — Migrations base (première fois)
 
@@ -385,7 +385,7 @@ Section dédiée pour **tirer le meilleur** d’un VPS déjà en service (souven
 | Service | Exposition |
 |---------|------------|
 | PostgreSQL | Réseau Docker **interne uniquement** |
-| Next.js | `127.0.0.1:3000` → Nginx seulement |
+| Next.js | `127.0.0.1:3007` → Nginx seulement |
 | SSH | Port 22, IP restreinte si possible |
 | Prisma Studio / pgAdmin | **Jamais** en prod sur Internet |
 

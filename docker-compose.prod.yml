@@ -42,7 +42,7 @@ services:
       NODE_ENV: production
     ports:
       # Écoute uniquement en local — Nginx sur l'hôte fait le HTTPS public
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3007:3000"
     volumes:
       - louetonmatos_uploads:/app/uploads
     depends_on:
