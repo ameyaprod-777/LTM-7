@@ -42,7 +42,8 @@ export default async function ProfilePage({
       : {
           id: params.id,
           status: "ACTIVE",
-          role: { in: ["MEMBER", "ADMIN"] },
+          // Profils ADMIN non accessibles publiquement
+          role: "MEMBER",
         },
     include: {
       listings: {

@@ -14,7 +14,8 @@ export function buildMembersWhere(
 
   const where: Prisma.UserWhereInput = {
     status: "ACTIVE",
-    role: { in: ["MEMBER", "ADMIN"] },
+    // Compte ADMIN invisible dans l’annuaire membres
+    role: "MEMBER",
   };
 
   if (

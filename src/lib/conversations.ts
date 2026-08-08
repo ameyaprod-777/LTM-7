@@ -17,7 +17,8 @@ export async function getOrCreateDirectConversation(
     where: {
       id: targetUserId,
       status: "ACTIVE",
-      role: { in: ["MEMBER", "ADMIN"] },
+      // Contact messagerie réservé aux membres (pas ADMIN)
+      role: "MEMBER",
     },
     select: { id: true, name: true },
   });

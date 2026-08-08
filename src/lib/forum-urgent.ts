@@ -31,7 +31,7 @@ export async function notifyUrgentNeed(post: {
   const members = await prisma.user.findMany({
     where: {
       status: "ACTIVE",
-      role: { in: ["MEMBER", "ADMIN"] },
+      role: "MEMBER",
       id: { not: post.authorId },
     },
     select: { id: true, email: true, name: true },
