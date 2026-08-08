@@ -6,6 +6,24 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+load_env_file() {
+  local file="$1"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      local key="${BASH_REMATCH[1]}"
+      local val="${BASH_REMATCH[2]}"
+      if [[ "$val" =~ ^\"(.*)\"$ ]]; then
+        val="${BASH_REMATCH[1]}"
+      elif [[ "$val" =~ ^\'(.*)\'$ ]]; then
+        val="${BASH_REMATCH[1]}"
+      fi
+      export "$key=$val"
+    fi
+  done < "$file"
+}
+
 ENV_FILE="${ENV_FILE:-}"
 if [[ -z "$ENV_FILE" ]]; then
   if [[ -f .env.production ]]; then
@@ -18,8 +36,7 @@ fi
 if [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]]; then
   echo "==> Variables : ${ENV_FILE}"
   set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
+  load_env_file "$ENV_FILE"
   set +a
 else
   echo "ERREUR — Créez .env ou .env.production sur le serveur"
