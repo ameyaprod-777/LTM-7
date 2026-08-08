@@ -48,9 +48,10 @@ export default async function VerifyIdentityPage({
     },
   });
 
+  // || et non ?? : une NEXT_PUBLIC_ vide (souvent au build) ne doit pas bloquer le fallback runtime
   const publishableKey =
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ??
-    process.env.STRIPE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+    process.env.STRIPE_PUBLISHABLE_KEY ||
     "";
 
   if (!stripeEnabled() || !publishableKey) {
