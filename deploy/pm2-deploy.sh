@@ -46,6 +46,13 @@ fi
 export NODE_ENV=production
 export PORT="${PORT:-3007}"
 
+if [[ ! -f src/lib/prisma.ts || ! -f src/lib/api-auth.ts ]]; then
+  echo "ERREUR — Fichiers src/lib/ manquants (clone Git incomplet ?)"
+  echo "Essayez : git fetch origin && git reset --hard origin/main"
+  echo "Puis relancez ./deploy/pm2-deploy.sh"
+  exit 1
+fi
+
 if [[ "${1:-}" != "--no-pull" ]]; then
   echo "==> git pull origin main"
   git pull origin main
