@@ -20,6 +20,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset:admin": "tsx prisma/reset-to-admin.ts",
     "db:studio": "prisma studio",
+    "deploy": "bash deploy/pm2-deploy.sh",
     "postinstall": "prisma generate"
   },
   "prisma": {

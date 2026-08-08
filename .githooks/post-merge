@@ -1,0 +1,5 @@
+#!/bin/sh
+# Après `git pull`, rebuild + restart PM2 automatiquement.
+# Activer une fois sur le serveur : git config core.hooksPath .githooks
+cd "$(git rev-parse --show-toplevel)" || exit 1
+exec ./deploy/pm2-deploy.sh --no-pull

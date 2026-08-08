@@ -1,0 +1,99 @@
+# Déploiement VPS — PM2 (comme tes autres projets)
+
+Pas de Docker. **git pull → build → PM2 restart**, comme `ameyawebsite` et `lemoonkey`.
+
+---
+
+## Prérequis serveur (une seule fois)
+
+- Node.js 20+
+- PM2 (`npm i -g pm2`)
+- PostgreSQL (local ou Neon)
+- Nginx → `127.0.0.1:3007`
+
+```bash
+# PostgreSQL local (exemple)
+sudo apt install -y postgresql
+sudo -u postgres psql -c "CREATE USER louetonmatos WITH PASSWORD 'VOTRE_MDP';"
+sudo -u postgres psql -c "CREATE DATABASE louetonmatos OWNER louetonmatos;"
+```
+
+---
+
+## Installation initiale
+
+```bash
+cd ~/louetonmatos   # ton dossier existant
+git clone https://github.com/ameyaprod-777/LTM-7.git .   # si vide
+# ou : git remote set-url origin https://github.com/ameyaprod-777/LTM-7.git
+
+cp deploy/.env.production.example .env.production
+nano .env.production
+# DATABASE_URL=postgresql://louetonmatos:...@localhost:5432/louetonmatos?schema=public
+# NEXTAUTH_URL=https://louetonmatos.fr
+# + Stripe, Resend, etc.
+
+chmod 600 .env.production
+chmod +x deploy/pm2-deploy.sh
+
+# Hook : git pull déclenche le deploy automatiquement
+git config core.hooksPath .githooks
+chmod +x .githooks/post-merge
+
+# Premier déploiement
+./deploy/pm2-deploy.sh
+
+# PM2 au reboot
+pm2 startup
+pm2 save
+```
+
+---
+
+## Mises à jour (quotidien)
+
+Depuis Cursor : push sur `main`.
+
+Sur le VPS :
+
+```bash
+cd ~/louetonmatos
+git pull
+```
+
+C’est tout — le hook `post-merge` lance build + migrations + `pm2 restart`.
+
+Sans hook, manuel :
+
+```bash
+./deploy/pm2-deploy.sh
+```
+
+---
+
+## Nginx
+
+```nginx
+upstream louetonmatos_app {
+    server 127.0.0.1:3007;
+}
+```
+
+Fichier exemple : `deploy/nginx/louetonmatos.conf.example`
+
+---
+
+## Commandes utiles
+
+```bash
+pm2 list
+pm2 logs louetonmatos
+curl http://127.0.0.1:3007/api/health
+npx prisma migrate status
+```
+
+---
+
+## Docker
+
+L’ancien flux Docker (`deploy/deploy.sh`, `docker-compose.prod.yml`) reste disponible si besoin, mais **le flux recommandé PM2** est `./deploy/pm2-deploy.sh`.
