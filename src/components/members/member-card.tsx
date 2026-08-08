@@ -11,6 +11,7 @@ export type MemberCardData = {
   image: string | null;
   city: string | null;
   creativeDomain: CreativeDomain | null;
+  verifiedIdentity?: boolean;
   kycVerifiedAt: Date | string | null;
   identityExpiresAt?: Date | string | null;
   memberSince: Date | string | null;
@@ -33,6 +34,7 @@ export function MemberCard({
     : null;
   const locked = variant === "teaser" || variant === "preview";
   const identityVerified = hasVerifiedKycIdentity({
+    verifiedIdentity: member.verifiedIdentity,
     kycVerifiedAt: member.kycVerifiedAt
       ? new Date(member.kycVerifiedAt)
       : null,

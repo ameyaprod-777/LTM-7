@@ -16,12 +16,16 @@ declare module "next-auth" {
       image?: string | null;
       role: UserRole;
       status: UserStatus;
+      verifiedIdentity: boolean;
+      emailVerified: Date | null;
     };
   }
 
   interface User {
     role: UserRole;
     status: UserStatus;
+    verifiedIdentity?: boolean;
+    emailVerified?: Date | null;
   }
 }
 
@@ -30,6 +34,8 @@ declare module "next-auth/jwt" {
     id: string;
     role: UserRole;
     status: UserStatus;
+    verifiedIdentity: boolean;
+    emailVerified: Date | null;
   }
 }
 
@@ -95,6 +101,8 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           role: user.role,
           status: user.status,
+          verifiedIdentity: user.verifiedIdentity,
+          emailVerified: user.emailVerified,
         };
       },
     }),
@@ -105,21 +113,38 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.status = user.status;
+        token.verifiedIdentity = user.verifiedIdentity ?? false;
+        token.emailVerified = user.emailVerified ?? null;
       }
 
       if (trigger === "update" && session?.user) {
         token.role = session.user.role;
         token.status = session.user.status;
+        token.verifiedIdentity = session.user.verifiedIdentity ?? token.verifiedIdentity;
       }
 
-      if (token.id && (trigger === "update" || !token.role)) {
+      if (
+        token.id &&
+        (trigger === "update" || !token.role || token.verifiedIdentity === undefined)
+      ) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true, status: true },
+          select: {
+            role: true,
+            status: true,
+            verifiedIdentity: true,
+            emailVerified: true,
+          },
         });
         if (dbUser) {
           token.role = dbUser.role;
           token.status = dbUser.status;
+          token.verifiedIdentity = dbUser.verifiedIdentity;
+          token.emailVerified = dbUser.emailVerified;
+        } else {
+          // L'utilisateur n'existe plus en base (ex. reset DB). On invalide
+          // le token pour forcer une déconnexion propre côté client.
+          return {} as typeof token;
         }
       }
 
@@ -130,6 +155,8 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.status = token.status;
+        session.user.verifiedIdentity = token.verifiedIdentity;
+        session.user.emailVerified = token.emailVerified;
       }
       return session;
     },

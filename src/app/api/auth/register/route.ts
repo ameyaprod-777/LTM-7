@@ -53,8 +53,11 @@ export async function POST(req: Request) {
       },
     });
 
+    const rawInvite = typeof body?.invite === "string" ? body.invite.trim() : "";
+    const invite = rawInvite.length > 0 ? rawInvite : null;
+
     try {
-      await sendVerificationEmailForUser(user.id);
+      await sendVerificationEmailForUser(user.id, { invite });
     } catch (emailErr) {
       console.error("[register] verification email", emailErr);
     }

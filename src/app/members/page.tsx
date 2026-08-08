@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Users, Lock, ArrowRight, SearchX } from "lucide-react";
 import { getAccessContext } from "@/lib/session";
 import { canViewMemberDirectory } from "@/lib/permissions";
+import { getOnboardingStatus } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { MemberCard } from "@/components/members/member-card";
 import { MembersToolbar } from "@/components/members/members-toolbar";
@@ -34,6 +35,11 @@ export default async function MembersPage({
   const canView = canViewMemberDirectory(tier);
   const isLoggedIn = !!user;
 
+  const onboarding =
+    isLoggedIn && tier === "pending" && user?.id
+      ? await getOnboardingStatus(user.id)
+      : null;
+
   const where = buildMembersWhere(searchParams);
   const pageSize = membersPageSize();
   const currentPage = Math.max(
@@ -52,6 +58,7 @@ export default async function MembersPage({
         image: true,
         city: true,
         creativeDomain: true,
+        verifiedIdentity: true,
         kycVerifiedAt: true,
         identityExpiresAt: true,
         bio: true,
@@ -77,6 +84,7 @@ export default async function MembersPage({
     image: m.image,
     city: m.city,
     creativeDomain: m.creativeDomain,
+    verifiedIdentity: m.verifiedIdentity,
     kycVerifiedAt: m.kycVerifiedAt,
     identityExpiresAt: m.identityExpiresAt,
     memberSince: m.memberSince,
@@ -110,7 +118,8 @@ export default async function MembersPage({
               <Lock className="mt-0.5 h-5 w-5 shrink-0" />
               <p>
                 {isLoggedIn
-                  ? "Votre candidature est en cours d'examen. Les profils seront accessibles dès votre validation."
+                  ? (onboarding?.message ??
+                    "Votre candidature est en cours d'examen. Les profils seront accessibles dès votre validation.")
                   : "Cette section est réservée aux membres validés. Inscrivez-vous pour rejoindre la communauté."}
               </p>
             </div>
@@ -165,11 +174,13 @@ export default async function MembersPage({
               réseau de confiance vérifié par notre équipe.
             </p>
             <Link
-              href={isLoggedIn ? "/apply" : "/register"}
+              href={isLoggedIn ? (onboarding?.href ?? "/apply") : "/register"}
               className="mt-6 inline-block"
             >
               <Button size="lg">
-                {isLoggedIn ? "Compléter ma candidature" : "Rejoindre la communauté"}
+                {isLoggedIn
+                  ? (onboarding?.ctaLabel ?? "Compléter ma candidature")
+                  : "Rejoindre la communauté"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>

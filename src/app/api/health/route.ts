@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { runHealthChecks, healthHttpStatus } from "@/lib/health-check";
 
+/**
+ * Readiness probe — ping DB + signale Stripe/Resend.
+ * UptimeRobot / Docker : 200 si DB OK, 503 sinon.
+ */
 export async function GET() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ status: "ok", db: "ok" });
-  } catch {
-    return NextResponse.json(
-      { status: "error", db: "unreachable" },
-      { status: 503 }
-    );
-  }
+  const report = await runHealthChecks();
+  return NextResponse.json(report, { status: healthHttpStatus(report) });
 }

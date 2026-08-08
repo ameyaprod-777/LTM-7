@@ -189,6 +189,65 @@ export async function POST(req: Request) {
       break;
     }
 
+    case "identity.verification_session.verified": {
+      const verification = event.data.object;
+      const userId = verification.metadata?.userId;
+      if (userId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            verifiedIdentity: true,
+            kycVerifiedAt: new Date(),
+            stripeIdentityVerificationId: verification.id,
+            stripeIdentityStatus: verification.status,
+            stripeIdentityLastError: null,
+          },
+        });
+        await createNotification({
+          userId,
+          type: "MEMBERSHIP_APPROVED",
+          title: "Identité vérifiée",
+          body: "Votre identité a été validée par Stripe. Vous pouvez maintenant finaliser votre candidature.",
+          link: "/apply",
+        });
+      }
+      break;
+    }
+
+    case "identity.verification_session.requires_input": {
+      const verification = event.data.object;
+      const userId = verification.metadata?.userId;
+      const reason =
+        verification.last_error?.reason ??
+        verification.last_error?.code ??
+        "unknown";
+      if (userId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            stripeIdentityStatus: verification.status,
+            stripeIdentityLastError: reason,
+          },
+        });
+      }
+      break;
+    }
+
+    case "identity.verification_session.processing":
+    case "identity.verification_session.canceled": {
+      const verification = event.data.object;
+      const userId = verification.metadata?.userId;
+      if (userId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            stripeIdentityStatus: verification.status,
+          },
+        });
+      }
+      break;
+    }
+
     default:
       break;
   }

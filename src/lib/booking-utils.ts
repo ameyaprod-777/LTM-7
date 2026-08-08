@@ -54,6 +54,8 @@ export function computeBookingTotals({
   return { commissionFee, totalAmount };
 }
 
+export { isBookingEndDateReached } from "@/lib/booking-dates";
+
 export {
   datesOverlapBooking,
   datesOverlapBlocked,

@@ -120,12 +120,13 @@ export default async function ProfilePage({
                 Membre actif
               </span>
             )}
-            {isIdentityExpired(user.identityExpiresAt) && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800">
-                <AlertTriangle className="h-3 w-3" />
-                Pièce d&apos;identité expirée
-              </span>
-            )}
+            {!user.verifiedIdentity &&
+              isIdentityExpired(user.identityExpiresAt) && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800">
+                  <AlertTriangle className="h-3 w-3" />
+                  Pièce d&apos;identité expirée
+                </span>
+              )}
           </div>
           {user.bio && <p className="mt-4 max-w-xl text-anthracite-600">{user.bio}</p>}
           {user.responseRate != null && user.responseRate > 0 && (

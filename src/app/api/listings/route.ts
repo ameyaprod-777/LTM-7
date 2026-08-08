@@ -5,6 +5,7 @@ import { listingDraftSchema, listingSchema } from "@/lib/validations/listing";
 import { listingDataFromInput } from "@/lib/listing-payload";
 import { draftListingDataFromInput } from "@/lib/listing-draft";
 import { syncListingTags } from "@/lib/listing-tags";
+import { assertStripeConnectReadyForPublish } from "@/lib/stripe-connect-gate";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -51,6 +52,15 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const publish = body.publish === true;
+
+  // Publication active : Stripe Connect obligatoire pour recevoir les fonds.
+  if (publish) {
+    const connect = await assertStripeConnectReadyForPublish(
+      auth.session.user.id
+    );
+    if (!connect.ok) return connect.response;
+  }
+
   const parsed = publish
     ? listingSchema.safeParse(body)
     : listingDraftSchema.safeParse(body);

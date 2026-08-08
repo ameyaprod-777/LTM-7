@@ -35,7 +35,7 @@ export function RegisterForm({ inviteToken }: { inviteToken?: string }) {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...data, acceptTerms: true }),
+      body: JSON.stringify({ ...data, acceptTerms: true, invite: inviteToken }),
     });
 
     const json = await res.json();

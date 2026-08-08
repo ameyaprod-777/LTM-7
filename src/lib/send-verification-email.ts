@@ -2,7 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { createEmailVerificationToken } from "@/lib/auth-tokens";
 import { sendEmail, emailVerificationEmail } from "@/lib/email";
 
-export async function sendVerificationEmailForUser(userId: string) {
+export async function sendVerificationEmailForUser(
+  userId: string,
+  options: { invite?: string | null } = {}
+) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { email: true, name: true, emailVerified: true },
@@ -20,7 +23,7 @@ export async function sendVerificationEmailForUser(userId: string) {
   await sendEmail({
     to: user.email,
     subject: "Confirmez votre email — LoueTonMatos",
-    html: emailVerificationEmail(user.name, token, user.email),
+    html: emailVerificationEmail(user.name, token, user.email, options.invite),
   });
 
   return { ok: true as const };

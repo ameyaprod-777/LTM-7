@@ -8,9 +8,6 @@ CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'BANNED');
 CREATE TYPE "ApplicationStatus" AS ENUM ('PENDING', 'INCOMPLETE', 'APPROVED', 'REJECTED');
 
 -- CreateEnum
-CREATE TYPE "KycDocumentType" AS ENUM ('ID_CARD_FRONT', 'ID_CARD_BACK', 'PASSPORT', 'DRIVERS_LICENSE', 'PROOF_OF_ADDRESS', 'OTHER');
-
--- CreateEnum
 CREATE TYPE "CreativeDomain" AS ENUM ('FILMMAKER', 'PHOTOGRAPHER', 'SOUND_ENGINEER', 'VIDEOGRAPHER', 'LIGHTING_TECH', 'EDITOR', 'PRODUCER', 'OTHER');
 
 -- CreateEnum
@@ -155,7 +152,6 @@ CREATE TABLE "MembershipApplication" (
     "status" "ApplicationStatus" NOT NULL DEFAULT 'PENDING',
     "adminMessage" TEXT,
     "adminNotes" TEXT,
-    "kycPurgeAt" TIMESTAMP(3),
     "reviewedById" TEXT,
     "reviewedAt" TIMESTAMP(3),
     "invitationId" TEXT,
@@ -163,21 +159,6 @@ CREATE TABLE "MembershipApplication" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "MembershipApplication_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "KycDocument" (
-    "id" TEXT NOT NULL,
-    "applicationId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "type" "KycDocumentType" NOT NULL,
-    "originalName" TEXT NOT NULL,
-    "mimeType" TEXT NOT NULL,
-    "storagePath" TEXT NOT NULL,
-    "sizeBytes" INTEGER NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "KycDocument_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -663,12 +644,6 @@ CREATE UNIQUE INDEX "MembershipApplication_userId_key" ON "MembershipApplication
 CREATE UNIQUE INDEX "MembershipApplication_invitationId_key" ON "MembershipApplication"("invitationId");
 
 -- CreateIndex
-CREATE INDEX "KycDocument_applicationId_idx" ON "KycDocument"("applicationId");
-
--- CreateIndex
-CREATE INDEX "KycDocument_userId_idx" ON "KycDocument"("userId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Invitation_token_key" ON "Invitation"("token");
 
 -- CreateIndex
@@ -796,12 +771,6 @@ ALTER TABLE "MembershipApplication" ADD CONSTRAINT "MembershipApplication_review
 
 -- AddForeignKey
 ALTER TABLE "MembershipApplication" ADD CONSTRAINT "MembershipApplication_invitationId_fkey" FOREIGN KEY ("invitationId") REFERENCES "Invitation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "KycDocument" ADD CONSTRAINT "KycDocument_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "MembershipApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "KycDocument" ADD CONSTRAINT "KycDocument_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Invitation" ADD CONSTRAINT "Invitation_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

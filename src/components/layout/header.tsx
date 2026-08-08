@@ -2,10 +2,11 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getAccessTier } from "@/lib/permissions";
+import { getOnboardingStatus } from "@/lib/onboarding";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { PendingBanner } from "./pending-banner";
+import { OnboardingBanner } from "./onboarding-banner";
 import { MobileNav } from "./mobile-nav";
 
 const navLinks = [
@@ -23,9 +24,14 @@ export async function Header() {
     session?.user?.status
   );
 
+  const onboarding =
+    tier === "pending" && session?.user?.id
+      ? await getOnboardingStatus(session.user.id)
+      : null;
+
   return (
     <header className="sticky top-0 z-50 border-b border-anthracite-100 bg-white/95 backdrop-blur">
-      {tier === "pending" && <PendingBanner />}
+      {onboarding && <OnboardingBanner status={onboarding} />}
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Logo />
         <nav

@@ -10,13 +10,11 @@ import {
   membershipIncompleteEmail,
 } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
-import { scheduleKycPurgeAfterReject } from "@/lib/kyc-purge";
 
 const actionSchema = z.object({
   action: z.enum(["approve", "reject", "incomplete", "save_notes"]),
   message: z.string().max(2000).optional(),
   adminNotes: z.string().max(5000).optional(),
-  identityExpiresAt: z.string().optional(),
 });
 
 export async function PATCH(
@@ -27,6 +25,22 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Interdit" }, { status: 403 });
+    }
+
+    // Vérifie que l'admin existe toujours en base (protection contre les
+    // JWT stale après un reset DB : évite un P2003 sur reviewedById).
+    const admin = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, role: true },
+    });
+    if (!admin || admin.role !== "ADMIN") {
+      return NextResponse.json(
+        {
+          error:
+            "Votre session admin est invalide. Déconnectez-vous puis reconnectez-vous.",
+        },
+        { status: 401 }
+      );
     }
 
     const body = await req.json();
@@ -44,7 +58,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Demande introuvable" }, { status: 404 });
     }
 
-    const { action, message, adminNotes, identityExpiresAt } = parsed.data;
+    const { action, message, adminNotes } = parsed.data;
 
     if (action === "save_notes") {
       await prisma.membershipApplication.update({
@@ -64,7 +78,7 @@ export async function PATCH(
     if (action === "incomplete") {
       if (!message?.trim()) {
         return NextResponse.json(
-          { error: "Indiquez quelles pièces sont manquantes." },
+          { error: "Indiquez quelles informations sont manquantes." },
           { status: 400 }
         );
       }
@@ -75,42 +89,46 @@ export async function PATCH(
           status: "INCOMPLETE",
           adminMessage: message,
           adminNotes: adminNotes !== undefined ? adminNotes : undefined,
-          reviewedById: session.user.id,
+          reviewedById: admin.id,
           reviewedAt: new Date(),
         },
       });
 
-      await createNotification({
-        userId: application.userId,
-        type: "MEMBERSHIP_REJECTED",
-        title: "Pièces complémentaires requises",
-        body: message,
-        link: "/apply",
-      });
-
-      await sendEmail({
-        to: application.user.email,
-        subject: "[LoueTonMatos] Complétez votre candidature",
-        html: membershipIncompleteEmail(
-          application.user.name ?? "Candidat",
-          message
-        ),
-      });
+      // Notification + email : ne doivent pas faire échouer l'action.
+      try {
+        await createNotification({
+          userId: application.userId,
+          type: "MEMBERSHIP_REJECTED",
+          title: "Informations complémentaires requises",
+          body: message,
+          link: "/apply",
+          sendEmailNotification: false,
+        });
+        await sendEmail({
+          to: application.user.email,
+          subject: "[LoueTonMatos] Complétez votre candidature",
+          html: membershipIncompleteEmail(
+            application.user.name ?? "Candidat",
+            message
+          ),
+        });
+      } catch (sideEffectErr) {
+        console.error("[admin/membership] incomplete side-effects", sideEffectErr);
+      }
 
       return NextResponse.json({ ok: true, status: "INCOMPLETE" });
     }
 
     const approved = action === "approve";
 
-    let parsedExpiry: Date | undefined;
-    if (approved && identityExpiresAt) {
-      parsedExpiry = new Date(identityExpiresAt);
-      if (Number.isNaN(parsedExpiry.getTime())) {
-        return NextResponse.json(
-          { error: "Date d'expiration invalide" },
-          { status: 400 }
-        );
-      }
+    if (approved && !application.user.verifiedIdentity) {
+      return NextResponse.json(
+        {
+          error:
+            "L'identité du candidat n'est pas vérifiée par Stripe. Impossible d'approuver.",
+        },
+        { status: 400 }
+      );
     }
 
     await prisma.$transaction(async (tx) => {
@@ -118,11 +136,10 @@ export async function PATCH(
         where: { id: params.id },
         data: {
           status: approved ? "APPROVED" : "REJECTED",
-          adminMessage: message,
+          adminMessage: message ?? null,
           adminNotes: adminNotes !== undefined ? adminNotes : undefined,
-          reviewedById: session.user.id,
+          reviewedById: admin.id,
           reviewedAt: new Date(),
-          kycPurgeAt: approved ? null : undefined,
         },
       });
 
@@ -130,43 +147,50 @@ export async function PATCH(
         where: { id: application.userId },
         data: {
           role: approved ? "MEMBER" : "PENDING",
-          memberSince: approved ? new Date() : undefined,
-          verifiedIdentity: approved,
-          kycVerifiedAt: approved ? new Date() : null,
-          identityExpiresAt: approved ? parsedExpiry ?? null : null,
+          memberSince: approved ? new Date() : null,
         },
       });
     });
 
-    if (!approved) {
-      await scheduleKycPurgeAfterReject(params.id);
-    }
-
     const userName = application.user.name ?? "Membre";
 
-    await createNotification({
-      userId: application.userId,
-      type: approved ? "MEMBERSHIP_APPROVED" : "MEMBERSHIP_REJECTED",
-      title: approved
-        ? "Bienvenue dans la communauté !"
-        : "Mise à jour de votre demande",
-      body: message,
-      link: approved ? "/dashboard" : "/apply",
-    });
+    // Notification + email après commit : un échec Resend ne doit pas
+    // faire croire que l'approbation a échoué.
+    try {
+      await createNotification({
+        userId: application.userId,
+        type: approved ? "MEMBERSHIP_APPROVED" : "MEMBERSHIP_REJECTED",
+        title: approved
+          ? "Bienvenue dans la communauté !"
+          : "Mise à jour de votre demande",
+        body: message,
+        link: approved ? "/dashboard" : "/apply",
+        sendEmailNotification: false,
+      });
 
-    await sendEmail({
-      to: application.user.email,
-      subject: approved
-        ? "[LoueTonMatos] Votre adhésion est approuvée"
-        : "[LoueTonMatos] Mise à jour de votre demande",
-      html: approved
-        ? membershipApprovedEmail(userName)
-        : membershipRejectedEmail(userName, message),
-    });
+      await sendEmail({
+        to: application.user.email,
+        subject: approved
+          ? "[LoueTonMatos] Votre adhésion est approuvée"
+          : "[LoueTonMatos] Mise à jour de votre demande",
+        html: approved
+          ? membershipApprovedEmail(userName)
+          : membershipRejectedEmail(userName, message),
+      });
+    } catch (sideEffectErr) {
+      console.error("[admin/membership] side-effects", sideEffectErr);
+    }
 
-    return NextResponse.json({ ok: true, status: approved ? "APPROVED" : "REJECTED" });
+    return NextResponse.json({
+      ok: true,
+      status: approved ? "APPROVED" : "REJECTED",
+    });
   } catch (error) {
     console.error("[admin/membership]", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    const message =
+      error instanceof Error && process.env.NODE_ENV === "development"
+        ? `Erreur serveur : ${error.message}`
+        : "Erreur serveur";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

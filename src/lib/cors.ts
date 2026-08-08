@@ -23,6 +23,7 @@ export function apiCorsGuard(req: NextRequest): NextResponse | null {
   if (!path.startsWith("/api/")) return null;
 
   if (SKIP_PREFIXES.some((p) => path.startsWith(p))) return null;
+  if (path === "/api/health" || path === "/api/health/live") return null;
 
   const origin = req.headers.get("origin");
   if (!origin) return null;

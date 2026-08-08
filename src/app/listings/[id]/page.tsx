@@ -66,6 +66,7 @@ export default async function ListingDetailPage({
           image: true,
           city: true,
           memberSince: true,
+          verifiedIdentity: true,
           kycVerifiedAt: true,
           identityExpiresAt: true,
         },

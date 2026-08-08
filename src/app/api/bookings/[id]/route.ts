@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getApiSession, forbidden } from "@/lib/api-auth";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, notifyAdmins } from "@/lib/notifications";
 import { computeCancellationRefund } from "@/lib/cancellation-policy";
 import {
   processBookingRefund,
@@ -11,6 +11,7 @@ import {
   allowBookingWithoutStripePayment,
   stripeEnabled,
 } from "@/lib/stripe-config";
+import { isBookingEndDateReached } from "@/lib/booking-dates";
 import { patchBookingSchema } from "@/lib/validations/booking";
 import { DAMAGE_TYPES } from "@/lib/validations/damage-report";
 import { notifyAdminsNewTicket } from "@/lib/ticket-notify";
@@ -278,6 +279,70 @@ export async function PATCH(
       );
     }
 
+    if (!isBookingEndDateReached(booking.endDate)) {
+      return NextResponse.json(
+        {
+          error:
+            "La location ne peut être marquée terminée qu'à partir du jour de fin de réservation.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const isRenter = session.user.id === booking.renterId;
+    const isLister = session.user.id === booking.listerId;
+    // Admin hors parties uniquement (sinon un admin-locataire sautait l'étape 1).
+    const isStaffBypass =
+      session.user.role === "ADMIN" && !isRenter && !isLister;
+
+    // Étape 1 — le locataire confirme toujours en premier (même s'il est admin).
+    if (isRenter) {
+      if (booking.renterCompletedAt) {
+        return NextResponse.json(
+          {
+            error:
+              "Vous avez déjà confirmé la fin. En attente de la confirmation du loueur.",
+          },
+          { status: 400 }
+        );
+      }
+
+      await prisma.booking.update({
+        where: { id: params.id },
+        data: { renterCompletedAt: new Date() },
+      });
+
+      await createNotification({
+        userId: booking.listerId,
+        type: "BOOKING_CONFIRMED",
+        title: "Action requise : confirmer la fin de location",
+        body: `${booking.listing.title} — le locataire a confirmé le retour.`,
+        link: "/dashboard/bookings?role=lister",
+      });
+
+      return NextResponse.json({
+        ok: true,
+        step: "renter_confirmed",
+        message:
+          "Fin confirmée. Le loueur doit maintenant valider pour libérer le paiement.",
+      });
+    }
+
+    // Étape 2 — le loueur finalise (ou un admin staff hors parties).
+    if (!isLister && !isStaffBypass) {
+      return NextResponse.json({ error: "Action non autorisée." }, { status: 403 });
+    }
+
+    if (!booking.renterCompletedAt && !isStaffBypass) {
+      return NextResponse.json(
+        {
+          error:
+            "Le locataire doit d'abord confirmer que la location est terminée.",
+        },
+        { status: 400 }
+      );
+    }
+
     const listerNet = booking.rentalFee + booking.deliveryFee;
 
     let stripeTransferId: string | null = null;
@@ -292,7 +357,11 @@ export async function PATCH(
 
     await prisma.booking.update({
       where: { id: params.id },
-      data: { status: "COMPLETED", completedAt: new Date() },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        renterCompletedAt: booking.renterCompletedAt ?? new Date(),
+      },
     });
 
     if (booking.payment) {
@@ -306,7 +375,15 @@ export async function PATCH(
       });
     }
 
-    return NextResponse.json({ ok: true, canReview: true });
+    await createNotification({
+      userId: booking.renterId,
+      type: "BOOKING_CONFIRMED",
+      title: "Location terminée",
+      body: booking.listing.title,
+      link: "/dashboard/bookings",
+    });
+
+    return NextResponse.json({ ok: true, canReview: true, step: "completed" });
   }
 
   if (action === "dispute") {
@@ -323,6 +400,8 @@ export async function PATCH(
         status: "DISPUTED",
         disputedAt: new Date(),
         disputeReason: typeof reason === "string" ? reason.slice(0, 2000) : null,
+        // Relance le flux de double confirmation après résolution admin.
+        renterCompletedAt: null,
       },
     });
 
@@ -335,7 +414,15 @@ export async function PATCH(
       userId: otherId,
       type: "BOOKING_CANCELLED",
       title: "Litige ouvert sur une réservation",
+      body: booking.listing.title,
       link: `/dashboard/bookings`,
+    });
+
+    await notifyAdmins({
+      type: "TICKET_NEW",
+      title: "Litige ouvert sur une réservation",
+      body: booking.listing.title,
+      link: "/admin/bookings",
     });
 
     return NextResponse.json({ ok: true });
@@ -369,6 +456,7 @@ export async function PATCH(
           status: "DISPUTED",
           disputedAt: new Date(),
           disputeReason: disputeText.slice(0, 2000),
+          renterCompletedAt: null,
         },
       });
 

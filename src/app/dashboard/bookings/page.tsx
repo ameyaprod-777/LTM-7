@@ -276,8 +276,21 @@ export default async function BookingsPage({
         ) : bookings.length === 0 ? (
           <p className="text-anthracite-500">Aucune réservation.</p>
         ) : (
-          bookings.map((b) => (
-            <article key={b.id} className="rounded-xl border border-anthracite-100 p-5">
+          bookings.map((b) => {
+            const awaitingListerConfirm =
+              view === "lister" &&
+              ["CONFIRMED", "ACTIVE"].includes(b.status) &&
+              !!b.renterCompletedAt;
+
+            return (
+            <article
+              key={b.id}
+              className={`rounded-xl border p-5 ${
+                awaitingListerConfirm
+                  ? "border-accent/40 bg-accent/5"
+                  : "border-anthracite-100"
+              }`}
+            >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <Link
@@ -286,6 +299,11 @@ export default async function BookingsPage({
                   >
                     {b.listing.title}
                   </Link>
+                  {awaitingListerConfirm && (
+                    <p className="mt-1 inline-flex rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent">
+                      Action requise — valider la fin de location
+                    </p>
+                  )}
                   <p className="mt-1 text-sm text-anthracite-500">
                     {formatDate(b.startDate)} → {formatDate(b.endDate)} ·{" "}
                     {BOOKING_STATUS_LABELS[b.status]}
@@ -322,6 +340,8 @@ export default async function BookingsPage({
                     listingTitle={b.listing.title}
                     status={b.status}
                     role={view === "lister" ? "lister" : "renter"}
+                    endDate={b.endDate}
+                    renterCompletedAt={b.renterCompletedAt?.toISOString() ?? null}
                     listerApprovedAt={b.listerApprovedAt?.toISOString() ?? null}
                     paymentStatus={b.payment?.status ?? null}
                     cancellationPolicy={b.cancellationPolicy}
@@ -336,7 +356,8 @@ export default async function BookingsPage({
                 />
               )}
             </article>
-          ))
+            );
+          })
         )}
       </div>
     </div>

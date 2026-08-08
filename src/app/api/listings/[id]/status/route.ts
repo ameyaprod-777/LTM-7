@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireMemberApi, forbidden } from "@/lib/api-auth";
 import { validateListingReadyForPublish } from "@/lib/listing-draft";
+import { assertStripeConnectReadyForPublish } from "@/lib/stripe-connect-gate";
 
 const schema = z.object({
   status: z.enum(["ACTIVE", "PAUSED", "DRAFT"]),
@@ -32,17 +33,24 @@ export async function PATCH(
     return NextResponse.json({ error: "Statut invalide" }, { status: 400 });
   }
 
-  if (parsed.data.status === "ACTIVE" && listing.status === "DRAFT") {
-    const check = validateListingReadyForPublish(listing);
-    if (!check.success) {
-      return NextResponse.json(
-        {
-          error:
-            "Complétez l'annonce (description, prix, ville…) avant publication.",
-          fields: check.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
+  if (parsed.data.status === "ACTIVE") {
+    const connect = await assertStripeConnectReadyForPublish(
+      listing.ownerId
+    );
+    if (!connect.ok) return connect.response;
+
+    if (listing.status === "DRAFT") {
+      const check = validateListingReadyForPublish(listing);
+      if (!check.success) {
+        return NextResponse.json(
+          {
+            error:
+              "Complétez l'annonce (description, prix, ville…) avant publication.",
+            fields: check.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
     }
   }
 

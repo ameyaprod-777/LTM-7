@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { purgeKycForUser } from "@/lib/kyc-purge";
 
 export async function deleteUserAccount(userId: string) {
   const user = await prisma.user.findUnique({
@@ -10,8 +9,6 @@ export async function deleteUserAccount(userId: string) {
   if (!user) {
     throw new Error("Utilisateur introuvable");
   }
-
-  await purgeKycForUser(userId);
 
   await prisma.$transaction(async (tx) => {
     await tx.listing.updateMany({

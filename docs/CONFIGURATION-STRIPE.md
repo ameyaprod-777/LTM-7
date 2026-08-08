@@ -16,6 +16,7 @@ Ce guide explique comment obtenir vos clés API Stripe, configurer les webhooks 
 8. [Passer en production (mode Live)](#8-passer-en-production-mode-live)
 9. [Dépannage](#9-dépannage)
 10. [Référence technique](#10-référence-technique)
+11. [Stripe Identity (vérification KYC)](#11-stripe-identity-vérification-kyc)
 
 ---
 
@@ -312,4 +313,74 @@ Logs utiles :
 
 ---
 
-*Dernière mise à jour : mai 2026 — aligné sur le code LoueTonMatos (Checkout, Connect Express, locations + devis services).*
+*Dernière mise à jour : mai 2026 — aligné sur le code LoueTonMatos (Checkout, Connect Express, locations + devis services, Stripe Identity).*
+
+---
+
+## 11. Stripe Identity (vérification KYC)
+
+Depuis la beta, la vérification d'identité passe **entièrement** par **Stripe Identity** (document + selfie). L'application ne stocke plus aucune pièce d'identité en local.
+
+### 11.1 Activer Identity dans le Dashboard
+
+1. Dashboard Stripe → **Identity** → **Enable**
+2. Choisir **Document + Selfie** comme méthode
+3. (Optionnel) **Settings → Identity** : logo + couleur de marque (`#2a5f9e`)
+
+### 11.2 Webhooks Identity
+
+Endpoint : le même que pour Checkout (`/api/stripe/webhook`). Ajouter les événements :
+
+- `identity.verification_session.verified` → marque `user.verifiedIdentity = true`
+- `identity.verification_session.requires_input` → stocke l'erreur retournée
+- `identity.verification_session.processing` → statut intermédiaire
+- `identity.verification_session.canceled`
+
+En local, `stripe listen --forward-to localhost:3000/api/stripe/webhook` reçoit ces événements automatiquement.
+
+### 11.3 Parcours utilisateur
+
+1. Inscription (email + mot de passe) → user `PENDING`
+2. Vérification email
+3. Redirection automatique vers `/verify-identity`
+4. Clic sur « Vérifier mon identité » → **modal Stripe Identity** (via `@stripe/stripe-js`) reste sur le site LTM
+5. Photo pièce + selfie → statut `processing` → webhook `verified` → `user.verifiedIdentity = true`
+6. Redirection vers `/apply` (formulaire de candidature classique, sans upload)
+7. Admin approuve/refuse via `/admin/membership` (l'identité est déjà validée par Stripe, l'admin valide juste la pertinence du profil pour la communauté)
+
+Le middleware bloque `/apply` tant que `verifiedIdentity` est faux.
+
+### 11.4 Fichiers concernés
+
+| Fichier | Rôle |
+|---------|------|
+| `src/app/api/stripe/identity/session/route.ts` | Crée la `VerificationSession` Stripe |
+| `src/app/api/stripe/webhook/route.ts` | Traite les events `identity.verification_session.*` |
+| `src/app/verify-identity/page.tsx` | Page dédiée entre email vérifié et candidature |
+| `src/components/membership/identity-verification-button.tsx` | Modal Stripe (`stripe.verifyIdentity(client_secret)`) |
+| `src/components/membership/identity-verified-redirect.tsx` | Force `session.update()` puis redirect `/apply` |
+| `src/middleware.ts` | Redirige vers `/verify-identity` si non vérifié |
+
+### 11.5 Champs Prisma ajoutés sur `User`
+
+```prisma
+stripeIdentityVerificationId String?   @unique
+stripeIdentityStatus         String?
+stripeIdentityLastError      String?
+```
+
+Champs existants réutilisés : `verifiedIdentity`, `kycVerifiedAt`.
+
+### 11.6 Tarification Stripe Identity
+
+- **1,50 € par vérification réussie** (mode Live), gratuit en mode Test.
+- Facturé côté Stripe, indépendamment de vos frais Checkout.
+
+### 11.7 Ancien système KYC (supprimé)
+
+L'ancien flux d'upload manuel (`uploads/kyc/`, table `KycDocument`, endpoints `/api/admin/kyc/*` et cron `/api/cron/kyc-purge`) a été **entièrement retiré** :
+
+- Modèle Prisma `KycDocument` et enum `KycDocumentType` supprimés.
+- Fichiers `src/lib/kyc-storage.ts`, `src/lib/kyc-purge.ts`, `src/lib/validations/kyc.ts` supprimés.
+- Composant `KycUploadSection` supprimé.
+- Dossier `uploads/kyc/` à purger sur les serveurs de production après migration.

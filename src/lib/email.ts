@@ -48,28 +48,35 @@ export async function sendEmail({
     return { ok: true as const, dev: true };
   }
 
-  const { error } = await resend.emails.send({
-    from: FROM,
-    to,
-    replyTo: REPLY_TO,
-    subject,
-    html,
-    attachments: attachments?.map((a) => ({
-      filename: a.filename,
-      content: a.content,
-    })),
-  });
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to,
+      replyTo: REPLY_TO,
+      subject,
+      html,
+      attachments: attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+      })),
+    });
 
-  if (error) {
-    console.error("[email]", error);
-    return { ok: false as const, error };
+    if (error) {
+      console.error("[email]", error);
+      return { ok: false as const, error };
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("[email:sent]", { to, subject });
+    }
+
+    return { ok: true as const };
+  } catch (err) {
+    // Resend peut throw (réseau, DNS, etc.) — on ne fait jamais planter
+    // une action métier (approbation, inscription…) pour un email.
+    console.error("[email] throw", err);
+    return { ok: false as const, error: err };
   }
-
-  if (process.env.NODE_ENV === "development") {
-    console.log("[email:sent]", { to, subject });
-  }
-
-  return { ok: true as const };
 }
 
 function appUrl(path: string) {
@@ -101,9 +108,9 @@ export function membershipRejectedEmail(name: string, message?: string) {
 
 export function membershipIncompleteEmail(name: string, message: string) {
   return `
-    <h1>Pièces complémentaires requises</h1>
+    <h1>Informations complémentaires requises</h1>
     <p>Bonjour ${name},</p>
-    <p>Votre candidature nécessite des documents ou informations supplémentaires :</p>
+    <p>Votre candidature nécessite des informations supplémentaires :</p>
     <p><em>${message}</em></p>
     <p><a href="${appUrl("/apply")}">Compléter ma candidature</a></p>
   `;
@@ -337,10 +344,15 @@ export function testEmail(recipientName: string | null) {
   `;
 }
 
-export function emailVerificationEmail(name: string | null, token: string, email: string) {
-  const link = appUrl(
-    `/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
-  );
+export function emailVerificationEmail(
+  name: string | null,
+  token: string,
+  email: string,
+  invite?: string | null
+) {
+  const params = new URLSearchParams({ token, email });
+  if (invite) params.set("invite", invite);
+  const link = appUrl(`/verify-email?${params.toString()}`);
   return `
     <h1>Confirmez votre adresse email</h1>
     <p>Bonjour${name ? ` ${name}` : ""},</p>

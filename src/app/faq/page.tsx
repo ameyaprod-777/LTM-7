@@ -16,7 +16,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Comment rejoindre la communauté ?",
-    a: "Créez un compte, complétez votre candidature avec les pièces KYC demandées, puis attendez la validation par notre équipe. Vous pouvez aussi être invité par un membre existant.",
+    a: "Créez un compte, confirmez votre email, vérifiez votre identité via Stripe Identity (pièce + selfie, aucun document stocké chez nous), puis complétez votre candidature. Notre équipe la valide sous quelques jours. Vous pouvez aussi être invité par un membre existant.",
   },
   {
     q: "Comment louer du matériel ?",

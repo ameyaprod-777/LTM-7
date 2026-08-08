@@ -5,7 +5,6 @@ import { isSuperAdminRole } from "@/lib/staff";
 import { logAudit, getClientIp } from "@/lib/audit-log";
 import { adminUserUpdateSchema } from "@/lib/validations/admin-user";
 import { createNotification } from "@/lib/notifications";
-import { scheduleKycPurgeAfterMemberDeparture } from "@/lib/kyc-purge";
 import { deleteUserAccount } from "@/lib/account-deletion";
 
 export async function GET(
@@ -176,10 +175,6 @@ export async function PATCH(
       body: "Un administrateur vous a accordé l'accès complet à la communauté.",
       link: "/dashboard",
     });
-  }
-
-  if (data.role === "PENDING" && wasMember) {
-    await scheduleKycPurgeAfterMemberDeparture(params.id);
   }
 
   if (data.status === "SUSPENDED" || data.status === "BANNED") {

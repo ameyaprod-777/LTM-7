@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMemberApi } from "@/lib/api-auth";
 import { serviceSchema } from "@/lib/validations/service";
 import { eurosToCents } from "@/lib/money";
+import { assertStripeConnectReadyForPublish } from "@/lib/stripe-connect-gate";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -42,6 +43,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const auth = await requireMemberApi();
   if ("error" in auth) return auth.error;
+
+  const connect = await assertStripeConnectReadyForPublish(auth.session.user.id);
+  if (!connect.ok) return connect.response;
 
   const body = await req.json();
   const parsed = serviceSchema.safeParse(body);

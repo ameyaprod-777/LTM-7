@@ -1,13 +1,19 @@
 import { z } from "zod";
 import { CreativeDomain } from "@prisma/client";
-import { kycIdentityTypeSchema } from "@/lib/validations/kyc";
 import {
   acceptKycPolicySchema,
   acceptTermsSchema,
 } from "@/lib/validations/legal";
 
-export const membershipApplicationSchema = z.object({
-  kycIdentityType: kycIdentityTypeSchema,
+const recentProjectSchema = z.object({
+  title: z.string().max(150).optional().or(z.literal("")),
+  url: z.string().url("URL invalide").optional().or(z.literal("")),
+  description: z.string().max(300).optional().or(z.literal("")),
+});
+
+/** Schéma côté client : ne valide PAS les consentements
+ *  (gérés par des useState externes à react-hook-form). */
+export const membershipApplicationFormSchema = z.object({
   name: z.string().min(2, "Nom requis"),
   image: z.string().url().optional().or(z.literal("")),
   city: z.string().min(2, "Ville requise"),
@@ -22,13 +28,22 @@ export const membershipApplicationSchema = z.object({
   portfolioUrl: z.string().url().optional().or(z.literal("")),
   instagramUrl: z.string().optional(),
   websiteUrl: z.string().url().optional().or(z.literal("")),
+  recentProjects: z.array(recentProjectSchema).max(3).optional(),
   invitationToken: z.string().optional(),
+});
+
+/** Schéma complet côté serveur : impose acceptTerms + acceptKycPolicy. */
+export const membershipApplicationSchema = membershipApplicationFormSchema.extend({
   acceptTerms: acceptTermsSchema,
   acceptKycPolicy: acceptKycPolicySchema,
 });
 
 export type MembershipApplicationInput = z.infer<
   typeof membershipApplicationSchema
+>;
+
+export type MembershipApplicationFormInput = z.infer<
+  typeof membershipApplicationFormSchema
 >;
 
 export const CREATIVE_DOMAIN_LABELS: Record<CreativeDomain, string> = {

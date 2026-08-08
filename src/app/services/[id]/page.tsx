@@ -62,6 +62,7 @@ export default async function ServiceDetailPage({
           image: true,
           city: true,
           bio: true,
+          verifiedIdentity: true,
           kycVerifiedAt: true,
           identityExpiresAt: true,
           memberSince: true,

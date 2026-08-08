@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getAccessContext } from "@/lib/session";
 import { canPostForum, canViewForumFeed } from "@/lib/permissions";
+import { getOnboardingStatus } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 import { ForumPostType, ForumSection } from "@prisma/client";
 import { FeedPostCard } from "@/components/forum/feed-post-card";
@@ -21,6 +22,11 @@ export default async function ForumPage({
   const canView = canViewForumFeed(tier);
   const isLoggedIn = !!user;
   const canPost = canPostForum(tier);
+
+  const onboarding =
+    isLoggedIn && tier === "pending" && user?.id
+      ? await getOnboardingStatus(user.id)
+      : null;
 
   const typeFilter =
     searchParams.type &&
@@ -80,7 +86,8 @@ export default async function ForumPage({
               <Lock className="mt-0.5 h-5 w-5 shrink-0" />
               <p>
                 {isLoggedIn
-                  ? "Votre candidature est en cours d'examen. Le fil complet sera accessible dès votre validation."
+                  ? (onboarding?.message ??
+                    "Votre candidature est en cours d'examen. Le fil complet sera accessible dès votre validation.")
                   : "Le fil d'actualité est réservé aux membres validés. Rejoignez la communauté pour lire et publier."}
               </p>
             </div>
@@ -133,11 +140,13 @@ export default async function ForumPage({
               urgences de la communauté créative.
             </p>
             <Link
-              href={isLoggedIn ? "/apply" : "/register"}
+              href={isLoggedIn ? (onboarding?.href ?? "/apply") : "/register"}
               className="mt-6 inline-block"
             >
               <Button size="lg">
-                {isLoggedIn ? "Compléter ma candidature" : "Rejoindre la communauté"}
+                {isLoggedIn
+                  ? (onboarding?.ctaLabel ?? "Compléter ma candidature")
+                  : "Rejoindre la communauté"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>

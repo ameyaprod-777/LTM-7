@@ -33,12 +33,29 @@ export function ListingRowActions({
 
   const setStatus = async (next: ListingStatus) => {
     setLoading(next);
-    await fetch(`/api/listings/${listingId}/status`, {
+    const res = await fetch(`/api/listings/${listingId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
     });
     setLoading(null);
+    if (!res.ok) {
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+        redirectTo?: string;
+      };
+      if (json.code === "STRIPE_CONNECT_REQUIRED" && json.redirectTo) {
+        router.push(json.redirectTo);
+        return;
+      }
+      window.alert(
+        typeof json.error === "string"
+          ? json.error
+          : "Impossible de mettre à jour le statut."
+      );
+      return;
+    }
     router.refresh();
   };
 

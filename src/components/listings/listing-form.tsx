@@ -162,6 +162,15 @@ export function ListingForm({ listingId, defaultValues }: Props) {
       return;
     }
     const errBody = await res.json().catch(() => ({}));
+    if (errBody.code === "STRIPE_CONNECT_REQUIRED" && errBody.redirectTo) {
+      toastError(
+        typeof errBody.error === "string"
+          ? errBody.error
+          : "Configurez Stripe Connect avant de publier."
+      );
+      router.push(errBody.redirectTo);
+      return;
+    }
     toastError(formatApiError(errBody.error));
   };
 

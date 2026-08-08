@@ -17,6 +17,7 @@ export function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") ?? "/apply";
   const errorParam = searchParams.get("error");
   const resetOk = searchParams.get("reset") === "1";
+  const verifiedOk = searchParams.get("verified") === "1";
   const [error, setError] = useState<string | null>(() => {
     if (errorParam === "banned") return "Votre compte a été suspendu.";
     if (errorParam === "suspended")
@@ -76,6 +77,13 @@ export function LoginForm() {
       {resetOk && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           Mot de passe mis à jour. Vous pouvez vous connecter.
+        </div>
+      )}
+
+      {verifiedOk && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          Adresse email confirmée. Connectez-vous pour passer à l&apos;étape
+          suivante (vérification d&apos;identité).
         </div>
       )}
 

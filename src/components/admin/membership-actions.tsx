@@ -22,7 +22,6 @@ export function MembershipActions({
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [adminNotes, setAdminNotes] = useState(initialAdminNotes ?? "");
-  const [identityExpiresAt, setIdentityExpiresAt] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -97,19 +96,6 @@ export function MembershipActions({
             />
           </div>
 
-          <div>
-            <Label htmlFor={`expiry-${applicationId}`}>
-              Expiration pièce d&apos;identité (à l&apos;approbation)
-            </Label>
-            <input
-              id={`expiry-${applicationId}`}
-              type="date"
-              value={identityExpiresAt}
-              onChange={(e) => setIdentityExpiresAt(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-anthracite-200 px-3 py-2 text-sm"
-            />
-          </div>
-
           {error && <p className="text-xs text-red-600">{error}</p>}
 
           <div className="flex flex-wrap gap-2">
@@ -123,7 +109,6 @@ export function MembershipActions({
                   action: "approve",
                   message: message || undefined,
                   adminNotes,
-                  identityExpiresAt: identityExpiresAt || undefined,
                 }).finally(() => setLoading(null));
               }}
             >
@@ -135,7 +120,7 @@ export function MembershipActions({
               loading={loading === "incomplete"}
               onClick={() => {
                 if (!message.trim()) {
-                  setError("Indiquez les pièces manquantes pour le candidat.");
+                  setError("Indiquez les informations manquantes pour le candidat.");
                   return;
                 }
                 setLoading("incomplete");
@@ -147,7 +132,7 @@ export function MembershipActions({
                 }).finally(() => setLoading(null));
               }}
             >
-              Demander des pièces
+              Demander des informations
             </Button>
             <Button
               size="sm"

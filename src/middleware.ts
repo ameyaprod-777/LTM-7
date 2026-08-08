@@ -5,8 +5,18 @@ import type { UserRole, UserStatus } from "@prisma/client";
 import { apiCorsGuard } from "@/lib/cors";
 import { isStaffRole } from "@/lib/staff";
 
+// NB: `/dashboard` (page racine) reste accessible aux utilisateurs PENDING
+// pour leur afficher les étapes d'onboarding. Les sous-pages membres sont
+// listées explicitement ci-dessous et redirigent les PENDING vers `/apply`.
 const memberRoutePrefixes = [
-  "/dashboard",
+  "/dashboard/listings",
+  "/dashboard/services",
+  "/dashboard/bookings",
+  "/dashboard/deliveries",
+  "/dashboard/messages",
+  "/dashboard/payments",
+  "/dashboard/support",
+  "/dashboard/settings",
   "/listings/new",
   "/listings/map",
   "/services/new",
@@ -54,6 +64,14 @@ const authMiddleware = withAuth(
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
+    if (path.startsWith("/apply") && !token?.verifiedIdentity) {
+      return NextResponse.redirect(new URL("/verify-identity", req.url));
+    }
+
+    if (path.startsWith("/verify-identity") && token?.verifiedIdentity) {
+      return NextResponse.redirect(new URL("/apply", req.url));
+    }
+
     return NextResponse.next();
   },
   {
@@ -64,8 +82,10 @@ const authMiddleware = withAuth(
           "/dashboard",
           "/admin",
           "/apply",
+          "/verify-identity",
           "/api/membership",
           "/api/admin",
+          "/api/stripe/identity",
         ];
 
         const needsAuth = protectedPrefixes.some((p) => path.startsWith(p));
@@ -77,6 +97,11 @@ const authMiddleware = withAuth(
 );
 
 export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  const path = req.nextUrl.pathname;
+  if (path === "/api/health" || path === "/api/health/live") {
+    return NextResponse.next();
+  }
+
   const corsBlock = apiCorsGuard(req);
   if (corsBlock) return corsBlock;
 
@@ -92,6 +117,7 @@ export const config = {
     "/dashboard/:path*",
     "/admin/:path*",
     "/apply",
+    "/verify-identity",
     "/listings/new",
     "/listings/map",
     "/listings/:path*/edit",

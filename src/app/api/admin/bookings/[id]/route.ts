@@ -34,7 +34,12 @@ export async function PATCH(
   } else if (action === "resolve_dispute") {
     await prisma.booking.update({
       where: { id: params.id },
-      data: { status: "CONFIRMED", disputedAt: null, disputeReason: null },
+      data: {
+        status: "CONFIRMED",
+        disputedAt: null,
+        disputeReason: null,
+        renterCompletedAt: null,
+      },
     });
   } else if (action === "complete") {
     if (!["CONFIRMED", "ACTIVE"].includes(booking.status)) {
@@ -52,7 +57,11 @@ export async function PATCH(
     }
     await prisma.booking.update({
       where: { id: params.id },
-      data: { status: "COMPLETED", completedAt: new Date() },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        renterCompletedAt: booking.renterCompletedAt ?? new Date(),
+      },
     });
     if (booking.payment) {
       await prisma.payment.update({

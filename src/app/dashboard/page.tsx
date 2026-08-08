@@ -42,8 +42,16 @@ export default async function DashboardPage({
     },
   });
 
-  if (tier === "pending" && !user?.application) {
-    redirect("/apply");
+  if (tier === "pending") {
+    if (!user?.emailVerified) {
+      redirect("/verify-email?sent=1");
+    }
+    if (!user?.verifiedIdentity) {
+      redirect("/verify-identity");
+    }
+    if (!user?.application) {
+      redirect("/apply");
+    }
   }
 
   const earnings = await getProviderEarningsCents(session.user.id);
@@ -67,7 +75,7 @@ export default async function DashboardPage({
             <AlertCircle className="h-8 w-8 shrink-0 text-orange-600" />
             <div>
               <h2 className="font-semibold text-orange-900">
-                Pièces complémentaires requises
+                Informations complémentaires requises
               </h2>
               {user.application.adminMessage && (
                 <p className="mt-1 text-sm text-orange-800">

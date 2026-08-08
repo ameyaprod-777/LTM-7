@@ -1,39 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { KycDocumentType } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { membershipApplicationSchema } from "@/lib/validations/membership";
-import {
-  getRequiredKycTypes,
-  type KycIdentityType,
-} from "@/lib/validations/kyc";
-import {
-  saveKycFile,
-  deleteKycStorage,
-  validateKycFile,
-} from "@/lib/kyc-storage";
 import { sendEmail, adminNewApplicationEmail } from "@/lib/email";
 import { notifyAdmins, createNotification } from "@/lib/notifications";
 import { enforceRateLimit } from "@/lib/rate-limit";
-
-const FILE_FIELD_MAP: Record<
-  KycDocumentType,
-  string
-> = {
-  ID_CARD_FRONT: "idCardFront",
-  ID_CARD_BACK: "idCardBack",
-  PASSPORT: "passport",
-  DRIVERS_LICENSE: "driversLicense",
-  PROOF_OF_ADDRESS: "proofOfAddress",
-  OTHER: "otherDocument",
-};
-
-function getFile(formData: FormData, field: string): File | null {
-  const value = formData.get(field);
-  if (value instanceof File && value.size > 0) return value;
-  return null;
-}
 
 export async function POST(req: Request) {
   try {
@@ -52,9 +24,27 @@ export async function POST(req: Request) {
       );
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, email: true, verifiedIdentity: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+    }
+
+    if (!user.verifiedIdentity) {
+      return NextResponse.json(
+        {
+          error:
+            "Vous devez d'abord vérifier votre identité via Stripe Identity.",
+        },
+        { status: 400 }
+      );
+    }
+
     const existingApp = await prisma.membershipApplication.findUnique({
-      where: { userId: session.user.id },
-      include: { kycDocuments: true },
+      where: { userId: user.id },
     });
 
     if (existingApp?.status === "PENDING") {
@@ -64,30 +54,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const formData = await req.formData();
-    const raw = {
-      name: String(formData.get("name") ?? ""),
-      image: String(formData.get("image") ?? ""),
-      city: String(formData.get("city") ?? ""),
-      bio: String(formData.get("bio") ?? ""),
-      motivation: String(formData.get("motivation") ?? ""),
-      creativeDomain: String(formData.get("creativeDomain") ?? ""),
-      portfolioUrl: String(formData.get("portfolioUrl") ?? ""),
-      instagramUrl: String(formData.get("instagramUrl") ?? ""),
-      websiteUrl: String(formData.get("websiteUrl") ?? ""),
-      invitationToken: String(formData.get("invitationToken") ?? ""),
-      kycIdentityType: String(formData.get("kycIdentityType") ?? ""),
-      acceptTerms:
-        formData.get("acceptTerms") === "true" ||
-        formData.get("acceptTerms") === "on",
-      acceptKycPolicy:
-        formData.get("acceptKycPolicy") === "true" ||
-        formData.get("acceptKycPolicy") === "on",
-    };
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
+    }
 
     const parsed = membershipApplicationSchema.safeParse({
-      ...raw,
-      invitationToken: raw.invitationToken || undefined,
+      ...body,
+      invitationToken: body.invitationToken || undefined,
+      acceptTerms: body.acceptTerms === true || body.acceptTerms === "true",
+      acceptKycPolicy:
+        body.acceptKycPolicy === true || body.acceptKycPolicy === "true",
     });
 
     if (!parsed.success) {
@@ -98,48 +75,6 @@ export async function POST(req: Request) {
     }
 
     const data = parsed.data;
-    const identityType = data.kycIdentityType as KycIdentityType;
-    const requiredTypes = getRequiredKycTypes(identityType);
-
-    const filesToSave: { type: KycDocumentType; file: File }[] = [];
-    for (const type of requiredTypes) {
-      const field = FILE_FIELD_MAP[type];
-      const file = getFile(formData, field);
-      if (!file) {
-        return NextResponse.json(
-          {
-            error: {
-              kyc: [`Pièce d'identité requise : ${field}`],
-            },
-          },
-          { status: 400 }
-        );
-      }
-      const validationError = validateKycFile(file);
-      if (validationError) {
-        return NextResponse.json(
-          { error: { kyc: [validationError] } },
-          { status: 400 }
-        );
-      }
-      filesToSave.push({ type, file });
-    }
-
-    const optionalTypes: KycDocumentType[] = ["PROOF_OF_ADDRESS", "OTHER"];
-    for (const type of optionalTypes) {
-      const file = getFile(formData, FILE_FIELD_MAP[type]);
-      if (file) {
-        const validationError = validateKycFile(file);
-        if (validationError) {
-          return NextResponse.json(
-            { error: { kyc: [validationError] } },
-            { status: 400 }
-          );
-        }
-        filesToSave.push({ type, file });
-      }
-    }
-
     let invitationId: string | undefined;
 
     if (data.invitationToken) {
@@ -161,114 +96,95 @@ export async function POST(req: Request) {
       invitationId = invitation.id;
     }
 
-    const savedFiles = await Promise.all(
-      filesToSave.map(async ({ type, file }) => {
-        const stored = await saveKycFile(session.user.id, file);
-        return { type, ...stored };
-      })
+    const cleanedProjects = (data.recentProjects ?? []).filter(
+      (p) => (p.title?.trim() || p.url?.trim() || p.description?.trim())
     );
 
-    let applicationId: string;
+    const applicationId = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          name: data.name,
+          image: data.image || undefined,
+          city: data.city,
+          bio: data.bio,
+          creativeDomain: data.creativeDomain,
+          portfolioUrl: data.portfolioUrl || undefined,
+          instagramUrl: data.instagramUrl || undefined,
+          websiteUrl: data.websiteUrl || undefined,
+        },
+      });
 
-    try {
-      applicationId = await prisma.$transaction(async (tx) => {
-        await tx.user.update({
-          where: { id: session.user.id },
+      if (cleanedProjects.length > 0) {
+        await tx.project.deleteMany({ where: { userId: user.id } });
+        await tx.project.createMany({
+          data: cleanedProjects.map((p) => {
+            const url = p.url?.trim();
+            const desc = p.description?.trim();
+            const combined = [desc, url ? `Lien : ${url}` : null]
+              .filter(Boolean)
+              .join("\n\n");
+            return {
+              userId: user.id,
+              title: p.title?.trim() || url || "Projet",
+              description: combined || null,
+            };
+          }),
+        });
+      }
+
+      let appId: string;
+
+      if (existingApp) {
+        const updated = await tx.membershipApplication.update({
+          where: { userId: user.id },
           data: {
-            name: data.name,
-            image: data.image || undefined,
-            city: data.city,
-            bio: data.bio,
-            creativeDomain: data.creativeDomain,
-            portfolioUrl: data.portfolioUrl || undefined,
-            instagramUrl: data.instagramUrl || undefined,
-            websiteUrl: data.websiteUrl || undefined,
+            motivation: data.motivation,
+            status: "PENDING",
+            adminMessage: null,
+            reviewedAt: null,
+            reviewedById: null,
+            invitationId,
           },
         });
+        appId = updated.id;
+      } else {
+        const created = await tx.membershipApplication.create({
+          data: {
+            userId: user.id,
+            motivation: data.motivation,
+            invitationId,
+          },
+        });
+        appId = created.id;
+      }
 
-        let appId: string;
-
-        if (existingApp) {
-          const updated = await tx.membershipApplication.update({
-            where: { userId: session.user.id },
-            data: {
-              motivation: data.motivation,
-              status: "PENDING",
-              adminMessage: null,
-              reviewedAt: null,
-              reviewedById: null,
-              kycPurgeAt: null,
-              invitationId,
-            },
-          });
-          appId = updated.id;
-
-          const oldDocs = await tx.kycDocument.findMany({
-            where: { applicationId: appId },
-          });
-          await tx.kycDocument.deleteMany({ where: { applicationId: appId } });
-          for (const doc of oldDocs) {
-            await deleteKycStorage(doc.storagePath);
-          }
-        } else {
-          const created = await tx.membershipApplication.create({
-            data: {
-              userId: session.user.id,
-              motivation: data.motivation,
-              invitationId,
-            },
-          });
-          appId = created.id;
-        }
-
-        await tx.kycDocument.createMany({
-          data: savedFiles.map((f) => ({
-            applicationId: appId,
-            userId: session.user.id,
-            type: f.type,
-            originalName: f.originalName,
-            mimeType: f.mimeType,
-            storagePath: f.storagePath,
-            sizeBytes: f.sizeBytes,
-          })),
+      if (invitationId) {
+        const invitation = await tx.invitation.update({
+          where: { id: invitationId },
+          data: {
+            usedById: user.id,
+            usedAt: new Date(),
+          },
+          select: { createdById: true },
         });
 
-        if (invitationId) {
-          const invitation = await tx.invitation.update({
-            where: { id: invitationId },
-            data: {
-              usedById: session.user.id,
-              usedAt: new Date(),
-            },
-            select: { createdById: true, createdBy: { select: { name: true } } },
-          });
-
-          await createNotification({
-            userId: invitation.createdById,
-            type: "INVITATION_ACCEPTED",
-            title: "Invitation acceptée",
-            body: `${data.name} a utilisé votre lien d'invitation pour candidater.`,
-            link: "/dashboard",
-          });
-        }
-
-        return appId;
-      });
-    } catch (txError) {
-      for (const f of savedFiles) {
-        await deleteKycStorage(f.storagePath);
+        await createNotification({
+          userId: invitation.createdById,
+          type: "INVITATION_ACCEPTED",
+          title: "Invitation acceptée",
+          body: `${data.name} a utilisé votre lien d'invitation pour candidater.`,
+          link: "/dashboard",
+        });
       }
-      throw txError;
-    }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      return appId;
     });
 
     await notifyAdmins({
       type: "ADMIN_NEW_APPLICATION",
       title: "Nouvelle demande d'adhésion",
-      body: `${data.name} souhaite rejoindre la communauté (KYC transmis).`,
+      body: `${data.name} souhaite rejoindre la communauté (identité vérifiée Stripe).`,
       link: "/admin/membership",
     });
 
@@ -281,7 +197,7 @@ export async function POST(req: Request) {
       await sendEmail({
         to: admin.email,
         subject: "[LoueTonMatos] Nouvelle demande d'adhésion",
-        html: adminNewApplicationEmail(data.name, user!.email),
+        html: adminNewApplicationEmail(data.name, user.email),
       });
     }
 

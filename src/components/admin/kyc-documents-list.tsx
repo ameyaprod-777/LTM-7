@@ -1,54 +1,114 @@
-"use client";
+import {
+  ExternalLink,
+  ShieldCheck,
+  ShieldAlert,
+  Loader2,
+} from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import { humanizeStripeIdentityError } from "@/lib/stripe-identity-errors";
 
-import { FileText, ExternalLink } from "lucide-react";
-import { KYC_TYPE_LABELS } from "@/lib/validations/kyc";
-import type { KycDocumentType } from "@prisma/client";
-
-type Doc = {
-  id: string;
-  type: KycDocumentType;
-  originalName: string;
-  mimeType: string;
-  sizeBytes: number;
+type Props = {
+  verifiedIdentity: boolean;
+  verifiedAt: Date | null;
+  stripeStatus: string | null;
+  stripeLastError: string | null;
+  stripeVerificationId: string | null;
 };
 
-export function KycDocumentsList({ documents }: { documents: Doc[] }) {
-  if (documents.length === 0) {
+/** Rend l'état de vérification Stripe Identity côté admin. */
+export function IdentityVerificationPanel({
+  verifiedIdentity,
+  verifiedAt,
+  stripeStatus,
+  stripeLastError,
+  stripeVerificationId,
+}: Props) {
+  const humanError = humanizeStripeIdentityError(stripeLastError);
+  const stripeLink = stripeVerificationId ? (
+    <a
+      href={`https://dashboard.stripe.com/identity/verification-sessions/${stripeVerificationId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"
+    >
+      Voir dans Stripe
+      <ExternalLink className="h-3 w-3" />
+    </a>
+  ) : null;
+
+  if (verifiedIdentity) {
     return (
-      <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        Aucun document KYC transmis pour cette candidature.
-      </p>
+      <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-green-900">
+              Identité vérifiée par Stripe Identity
+            </p>
+            {verifiedAt && (
+              <p className="mt-1 text-xs text-green-800">
+                Vérifiée le {formatDate(verifiedAt)}
+              </p>
+            )}
+            <div className="text-green-800">{stripeLink}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const inProgress =
+    stripeStatus === "processing" || stripeStatus === "requires_input";
+
+  if (inProgress) {
+    return (
+      <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <div className="flex items-start gap-3">
+          <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-blue-700" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-blue-900">
+              Vérification Stripe Identity en cours
+            </p>
+            <p className="mt-1 text-xs text-blue-800">
+              Statut Stripe : <span className="font-medium">{stripeStatus}</span>
+              {stripeStatus === "requires_input" &&
+                " — Le candidat doit fournir des informations complémentaires."}
+              {stripeStatus === "processing" &&
+                " — Stripe analyse les documents (quelques minutes en général)."}
+            </p>
+            {humanError && (
+              <p className="mt-1 text-xs text-blue-800">
+                Dernière erreur : {humanError}
+              </p>
+            )}
+            <div className="text-blue-800">{stripeLink}</div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="mt-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-anthracite-400">
-        Pièces d&apos;identité (KYC)
-      </p>
-      <ul className="mt-2 space-y-2">
-        {documents.map((doc) => (
-          <li key={doc.id}>
-            <a
-              href={`/api/admin/kyc/${doc.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-lg border border-anthracite-100 bg-anthracite-50 px-3 py-2.5 text-sm transition-colors hover:border-accent hover:bg-accent-muted/30"
-            >
-              <FileText className="h-5 w-5 shrink-0 text-accent" />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium text-anthracite">
-                  {KYC_TYPE_LABELS[doc.type]}
-                </span>
-                <span className="truncate text-xs text-anthracite-500">
-                  {doc.originalName} · {(doc.sizeBytes / 1024).toFixed(0)} Ko
-                </span>
-              </span>
-              <ExternalLink className="h-4 w-4 shrink-0 text-anthracite-400" />
-            </a>
-          </li>
-        ))}
-      </ul>
+    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <div className="flex items-start gap-3">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-amber-900">
+            Identité non vérifiée
+          </p>
+          <p className="mt-1 text-xs text-amber-800">
+            {stripeStatus
+              ? `Statut Stripe : ${stripeStatus}`
+              : "Aucune session Stripe Identity créée pour ce candidat."}
+          </p>
+          {humanError && (
+            <p className="mt-1 text-xs text-amber-800">
+              Erreur : {humanError}
+            </p>
+          )}
+          <div className="text-amber-800">{stripeLink}</div>
+        </div>
+      </div>
     </div>
   );
 }

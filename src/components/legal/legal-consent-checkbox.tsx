@@ -123,7 +123,7 @@ export function MembershipLegalConsent({
         <Link href={LEGAL_ROUTES.kyc} className="text-accent hover:underline" target="_blank">
           politique KYC
         </Link>{" "}
-        et atteste sur l&apos;honneur de l&apos;exactitude des pièces transmises.
+        et la vérification de mon identité via Stripe Identity.
       </LegalConsentCheckbox>
     </div>
   );

@@ -2,7 +2,7 @@ import type { ApplicationStatus } from "@prisma/client";
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   PENDING: "En attente",
-  INCOMPLETE: "Pièces manquantes",
+  INCOMPLETE: "Informations manquantes",
   APPROVED: "Approuvée",
   REJECTED: "Refusée",
 };
@@ -17,6 +17,10 @@ export const APPLICATION_STATUS_STYLES: Record<
   REJECTED: "bg-red-100 text-red-800",
 };
 
+/**
+ * @deprecated Ancien système de KYC local. Le nouveau système Stripe Identity
+ * n'a pas d'expiration côté application. Conservé pour rétro-compat.
+ */
 export function isIdentityExpired(
   identityExpiresAt: Date | null | undefined
 ): boolean {
@@ -26,9 +30,16 @@ export function isIdentityExpired(
   return identityExpiresAt < today;
 }
 
+/**
+ * Renvoie true si l'identité est considérée comme vérifiée.
+ * Priorité au nouveau champ Stripe Identity (`verifiedIdentity`).
+ * Fallback rétro-compat sur l'ancien couple `kycVerifiedAt` + `identityExpiresAt`.
+ */
 export function hasVerifiedKycIdentity(user: {
-  kycVerifiedAt: Date | null | undefined;
-  identityExpiresAt: Date | null | undefined;
+  verifiedIdentity?: boolean | null;
+  kycVerifiedAt?: Date | null;
+  identityExpiresAt?: Date | null;
 }): boolean {
+  if (user.verifiedIdentity) return true;
   return !!user.kycVerifiedAt && !isIdentityExpired(user.identityExpiresAt);
 }
