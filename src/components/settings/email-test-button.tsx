@@ -45,7 +45,7 @@ export function EmailTestButton({
           <p className="mt-1 text-sm text-anthracite-500">
             {configured
               ? `Envoi depuis ${fromEmail}. Cliquez ci-dessous pour recevoir un email de test sur votre adresse de compte.`
-              : "Ajoutez RESEND_API_KEY dans .env et redémarrez npm run dev."}
+              : "Ajoutez RESEND_API_KEY dans .env.production (ou .env en local), puis redémarrez l’app (pm2 restart louetonmatos ou npm run dev)."}
           </p>
           {feedback && (
             <p className="mt-2 text-sm text-green-700">{feedback}</p>

@@ -18,7 +18,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "RESEND_API_KEY manquant. Ajoutez-le dans .env puis redémarrez le serveur.",
+          "RESEND_API_KEY manquant. Ajoutez-le dans .env.production (prod) ou .env (local), puis redémarrez l’app.",
       },
       { status: 503 }
     );
