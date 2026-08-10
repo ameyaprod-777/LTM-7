@@ -70,4 +70,37 @@ body {
   .safe-pt {
     padding-top: env(safe-area-inset-top, 0px);
   }
+
+  @keyframes ltm-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ltm-slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .ltm-menu-backdrop {
+    animation: ltm-fade-in 0.2s ease-out both;
+  }
+
+  .ltm-menu-panel {
+    animation: ltm-slide-in-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ltm-menu-backdrop,
+    .ltm-menu-panel {
+      animation: none;
+    }
+  }
 }
