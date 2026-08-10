@@ -4,12 +4,29 @@ import {
   acceptKycPolicySchema,
   acceptTermsSchema,
 } from "@/lib/validations/legal";
+import {
+  MAX_PROFILE_PROJECTS,
+  VIDEO_URL_ERROR,
+  isYoutubeOrVimeoUrl,
+} from "@/lib/video-embed";
 
-const recentProjectSchema = z.object({
-  title: z.string().max(150).optional().or(z.literal("")),
-  url: z.string().url("URL invalide").optional().or(z.literal("")),
-  description: z.string().max(300).optional().or(z.literal("")),
-});
+const recentProjectSchema = z
+  .object({
+    title: z.string().max(150).optional().or(z.literal("")),
+    url: z.string().optional().or(z.literal("")),
+    description: z.string().max(300).optional().or(z.literal("")),
+  })
+  .superRefine((p, ctx) => {
+    const url = (p.url ?? "").trim();
+    if (!url) return;
+    if (!isYoutubeOrVimeoUrl(url)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["url"],
+        message: VIDEO_URL_ERROR,
+      });
+    }
+  });
 
 /** Schéma côté client : ne valide PAS les consentements
  *  (gérés par des useState externes à react-hook-form). */
@@ -27,7 +44,7 @@ export const membershipApplicationFormSchema = z
     /** Portfolio ou site web (un seul champ côté UI) */
     portfolioUrl: z.string().url("URL invalide").optional().or(z.literal("")),
     instagramUrl: z.string().optional(),
-    recentProjects: z.array(recentProjectSchema).max(3).optional(),
+    recentProjects: z.array(recentProjectSchema).max(MAX_PROFILE_PROJECTS).optional(),
     invitationToken: z.string().optional(),
   })
   .superRefine((data, ctx) => {

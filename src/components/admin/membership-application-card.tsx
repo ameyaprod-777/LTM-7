@@ -24,6 +24,7 @@ type Project = {
   title: string;
   description: string | null;
   coverImage: string | null;
+  videoUrl?: string | null;
   tags: string[];
 };
 
@@ -210,6 +211,16 @@ export function MembershipApplicationCard({ app }: ApplicationCardProps) {
                   <p className="mt-1 text-xs text-anthracite-500">
                     {project.description}
                   </p>
+                )}
+                {project.videoUrl && (
+                  <a
+                    href={project.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block text-xs text-accent hover:underline"
+                  >
+                    Voir la vidéo
+                  </a>
                 )}
                 {project.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">

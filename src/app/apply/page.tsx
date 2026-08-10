@@ -44,17 +44,11 @@ export default async function ApplyPage({
   const isPending = application?.status === "PENDING";
   const isResubmit = application?.status === "INCOMPLETE";
 
-  // Extrait le lien éventuellement concaténé dans la description
-  // (voir /api/membership/apply : "…\n\nLien : https://…")
-  const recentProjects = user.projects.map((p) => {
-    const desc = p.description ?? "";
-    const linkMatch = desc.match(/\n\nLien\s*:\s*(\S+)$/);
-    return {
-      title: p.title,
-      description: linkMatch ? desc.replace(linkMatch[0], "").trim() : desc,
-      url: linkMatch ? linkMatch[1] : "",
-    };
-  });
+  const recentProjects = user.projects.map((p) => ({
+    title: p.title,
+    description: p.description ?? "",
+    url: p.videoUrl ?? "",
+  }));
 
   if (isPending) {
     return (

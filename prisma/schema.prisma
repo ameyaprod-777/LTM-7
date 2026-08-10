@@ -828,6 +828,8 @@ model Project {
   title       String
   description String? @db.Text
   coverImage  String?
+  /// Lien YouTube ou Vimeo (lecteur embarqué sur le profil)
+  videoUrl    String?
   tags        String[]
 
   createdAt DateTime @default(now())

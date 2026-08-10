@@ -6,6 +6,7 @@ import { membershipApplicationSchema } from "@/lib/validations/membership";
 import { sendEmail, adminNewApplicationEmail } from "@/lib/email";
 import { notifyAdmins, createNotification } from "@/lib/notifications";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { parseVideoUrl } from "@/lib/video-embed";
 
 export async function POST(req: Request) {
   try {
@@ -121,14 +122,13 @@ export async function POST(req: Request) {
         await tx.project.createMany({
           data: cleanedProjects.map((p) => {
             const url = p.url?.trim();
+            const video = url ? parseVideoUrl(url) : null;
             const desc = p.description?.trim();
-            const combined = [desc, url ? `Lien : ${url}` : null]
-              .filter(Boolean)
-              .join("\n\n");
             return {
               userId: user.id,
-              title: p.title?.trim() || url || "Projet",
-              description: combined || null,
+              title: p.title?.trim() || (video?.canonicalUrl ?? url) || "Projet",
+              description: desc || null,
+              videoUrl: video?.canonicalUrl ?? null,
             };
           }),
         });

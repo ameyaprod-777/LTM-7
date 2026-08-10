@@ -245,8 +245,7 @@ export function MembershipApplicationForm({
           <div>
             <p className="font-semibold text-anthracite">Projets récents</p>
             <p className="text-xs text-anthracite-500">
-              Ajoutez jusqu&apos;à 3 projets pour montrer votre travail (facultatif
-              mais recommandé).
+              Jusqu&apos;à 3 liens YouTube ou Vimeo (facultatif mais recommandé).
             </p>
           </div>
           {fields.length < 3 && (
@@ -293,10 +292,13 @@ export function MembershipApplicationForm({
                   />
                 </div>
                 <div>
-                  <Label htmlFor={`project-url-${index}`}>Lien</Label>
+                  <Label htmlFor={`project-url-${index}`}>
+                    Lien YouTube ou Vimeo
+                  </Label>
                   <Input
                     id={`project-url-${index}`}
-                    placeholder="https://…"
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=… ou https://vimeo.com/…"
                     error={errors.recentProjects?.[index]?.url?.message}
                     {...register(`recentProjects.${index}.url` as const)}
                   />

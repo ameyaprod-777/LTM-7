@@ -16,6 +16,8 @@ import {
   isIdentityExpired,
 } from "@/lib/membership-labels";
 import { ContactMemberButton } from "@/components/messages/contact-member-button";
+import { VideoEmbed } from "@/components/media/video-embed";
+import { MAX_PROFILE_PROJECTS } from "@/lib/video-embed";
 
 export default async function ProfilePage({
   params,
@@ -149,19 +151,29 @@ export default async function ProfilePage({
       {user.projects.length > 0 && (
         <section className="mt-12">
           <h2 className="text-xl font-semibold text-anthracite">Projets</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {user.projects.map((p) => (
-              <article key={p.id} className="rounded-xl border border-anthracite-100 p-4">
-                {p.coverImage && (
-                  <div className="relative mb-3 aspect-video overflow-hidden rounded-lg">
+          <div className="mt-4 grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+            {user.projects.slice(0, MAX_PROFILE_PROJECTS).map((p) => (
+              <article key={p.id} className="overflow-hidden rounded-xl border border-anthracite-100">
+                {p.videoUrl ? (
+                  <VideoEmbed url={p.videoUrl} title={p.title} />
+                ) : p.coverImage ? (
+                  <div className="relative aspect-video overflow-hidden bg-anthracite-100">
                     <Image src={p.coverImage} alt="" fill className="object-cover" unoptimized />
                   </div>
-                )}
-                <h3 className="font-semibold">{p.title}</h3>
-                {p.description && <p className="mt-1 text-sm text-anthracite-500">{p.description}</p>}
-                {p.tags.length > 0 && (
-                  <p className="mt-2 text-xs text-anthracite-400">{p.tags.join(" · ")}</p>
-                )}
+                ) : null}
+                <div className="p-4">
+                  <h3 className="font-semibold text-anthracite">{p.title}</h3>
+                  {p.description && (
+                    <p className="mt-1 text-sm text-anthracite-500 whitespace-pre-wrap">
+                      {p.description}
+                    </p>
+                  )}
+                  {p.tags.length > 0 && (
+                    <p className="mt-2 text-xs text-anthracite-400">
+                      {p.tags.join(" · ")}
+                    </p>
+                  )}
+                </div>
               </article>
             ))}
           </div>

@@ -74,6 +74,7 @@ export default async function AdminMembershipPage({
                   title: true,
                   description: true,
                   coverImage: true,
+                  videoUrl: true,
                   tags: true,
                 },
               },

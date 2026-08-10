@@ -96,20 +96,22 @@ export default async function SettingsPage() {
 
       <section className="mt-12 border-t border-anthracite-100 pt-8">
         <h2 className="text-lg font-semibold text-anthracite">Mes projets</h2>
-        <p className="text-sm text-anthracite-500">
-          Portfolio affiché sur votre profil public.
+        <p className="mt-1 text-sm text-anthracite-500">
+          Portfolio vidéo affiché sur votre profil public (YouTube ou Vimeo, max.
+          3).
         </p>
         <div className="mt-4">
-          <ProjectForm />
+          <ProjectForm
+            initialProjects={user.projects.map((p) => ({
+              id: p.id,
+              title: p.title,
+              description: p.description,
+              videoUrl: p.videoUrl,
+              coverImage: p.coverImage,
+              tags: p.tags,
+            }))}
+          />
         </div>
-        <ul className="mt-6 space-y-2">
-          {user.projects.map((p) => (
-            <li key={p.id} className="text-sm text-anthracite-600">
-              {p.title}
-              {p.tags.length > 0 && ` · ${p.tags.join(", ")}`}
-            </li>
-          ))}
-        </ul>
       </section>
 
       <section className="mt-12 border-t border-red-100 pt-8">
