@@ -109,9 +109,10 @@ export async function POST(req: Request) {
           city: data.city,
           bio: data.bio,
           creativeDomain: data.creativeDomain,
+          // Un seul champ « portfolio / site web » → synchronisé sur les deux colonnes
           portfolioUrl: data.portfolioUrl || undefined,
+          websiteUrl: data.portfolioUrl || undefined,
           instagramUrl: data.instagramUrl || undefined,
-          websiteUrl: data.websiteUrl || undefined,
         },
       });
 

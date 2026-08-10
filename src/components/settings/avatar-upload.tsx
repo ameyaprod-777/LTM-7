@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 export function AvatarUpload({
   currentImage,
   onUploaded,
+  inputId = "avatar-upload",
 }: {
   currentImage: string | null;
   onUploaded: (url: string) => void;
+  inputId?: string;
 }) {
   const [preview, setPreview] = useState(currentImage);
   const [loading, setLoading] = useState(false);
@@ -59,13 +61,13 @@ export function AvatarUpload({
         )}
         <div>
           <input
-            id="avatar-upload"
+            id={inputId}
             type="file"
             accept="image/jpeg,image/png,image/webp"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) upload(file);
+              if (file) void upload(file);
             }}
           />
           <Button
@@ -73,7 +75,7 @@ export function AvatarUpload({
             variant="outline"
             size="sm"
             loading={loading}
-            onClick={() => document.getElementById("avatar-upload")?.click()}
+            onClick={() => document.getElementById(inputId)?.click()}
           >
             Choisir une image
           </Button>

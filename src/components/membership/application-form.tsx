@@ -12,6 +12,7 @@ import {
   type MembershipApplicationFormInput,
 } from "@/lib/validations/membership";
 import { MembershipLegalConsent } from "@/components/legal/legal-consent-checkbox";
+import { AvatarUpload } from "@/components/settings/avatar-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,11 +21,13 @@ import { Textarea } from "@/components/ui/textarea";
 type Props = {
   invitationToken?: string;
   defaultValues?: Partial<MembershipApplicationFormInput>;
+  currentImage?: string | null;
 };
 
 export function MembershipApplicationForm({
   invitationToken,
   defaultValues,
+  currentImage = null,
 }: Props) {
   const router = useRouter();
   const { update } = useSession();
@@ -32,6 +35,9 @@ export function MembershipApplicationForm({
   const [loading, setLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptKyc, setAcceptKyc] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    currentImage ?? defaultValues?.image ?? null
+  );
   const [legalErrors, setLegalErrors] = useState<{
     terms?: string;
     kyc?: string;
@@ -85,6 +91,7 @@ export function MembershipApplicationForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...values,
+        image: avatarUrl || values.image || "",
         recentProjects: cleanProjects,
         invitationToken,
         acceptTerms: true,
@@ -104,7 +111,6 @@ export function MembershipApplicationForm({
       return;
     }
 
-    // Rafraîchit le JWT (nom, ville, etc. peuvent avoir changé).
     try {
       await update();
     } catch {
@@ -148,15 +154,14 @@ export function MembershipApplicationForm({
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="image">URL photo de profil</Label>
-        <Input
-          id="image"
-          placeholder="https://..."
-          error={errors.image?.message}
-          {...register("image")}
-        />
-      </div>
+      <AvatarUpload
+        currentImage={avatarUrl}
+        inputId="apply-avatar-upload"
+        onUploaded={(url) => {
+          setAvatarUrl(url);
+          void update({ user: { image: url } });
+        }}
+      />
 
       <div>
         <Label htmlFor="creativeDomain">Domaine créatif principal *</Label>
@@ -203,18 +208,26 @@ export function MembershipApplicationForm({
         />
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2">
         <div>
-          <Label htmlFor="portfolioUrl">Portfolio</Label>
-          <Input id="portfolioUrl" placeholder="https://…" {...register("portfolioUrl")} />
+          <Label htmlFor="portfolioUrl">Portfolio ou site web</Label>
+          <Input
+            id="portfolioUrl"
+            placeholder="https://…"
+            error={errors.portfolioUrl?.message}
+            {...register("portfolioUrl")}
+          />
+          <p className="mt-1 text-xs text-anthracite-400">
+            Un site vitrine, Behance, Vimeo, etc. — un seul lien suffit.
+          </p>
         </div>
         <div>
           <Label htmlFor="instagramUrl">Instagram</Label>
-          <Input id="instagramUrl" placeholder="@pseudo ou URL" {...register("instagramUrl")} />
-        </div>
-        <div>
-          <Label htmlFor="websiteUrl">Site web</Label>
-          <Input id="websiteUrl" placeholder="https://…" {...register("websiteUrl")} />
+          <Input
+            id="instagramUrl"
+            placeholder="@pseudo ou URL"
+            {...register("instagramUrl")}
+          />
         </div>
       </div>
 

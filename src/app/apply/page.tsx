@@ -123,14 +123,14 @@ export default async function ApplyPage({
       <div className="mt-8">
         <MembershipApplicationForm
           invitationToken={searchParams.invite}
+          currentImage={user.image}
           defaultValues={{
             name: user.name ?? "",
             city: user.city ?? "",
             bio: user.bio ?? "",
             image: user.image ?? "",
-            portfolioUrl: user.portfolioUrl ?? "",
+            portfolioUrl: user.portfolioUrl || user.websiteUrl || "",
             instagramUrl: user.instagramUrl ?? "",
-            websiteUrl: user.websiteUrl ?? "",
             creativeDomain: user.creativeDomain ?? undefined,
             motivation: application?.motivation ?? "",
             recentProjects:
