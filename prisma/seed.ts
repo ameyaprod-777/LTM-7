@@ -20,9 +20,9 @@ async function main() {
   const memberPassword = await bcrypt.hash("Member123!", 12);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@louetonmatos.fr" },
+    where: { email: "support@louetonmatos.fr" },
     create: {
-      email: "admin@louetonmatos.fr",
+      email: "support@louetonmatos.fr",
       name: "Admin LoueTonMatos",
       passwordHash: adminPassword,
       role: "ADMIN",
@@ -228,7 +228,7 @@ async function main() {
   }
 
   console.log("Seed OK");
-  console.log("  Admin : admin@louetonmatos.fr / Admin123!");
+  console.log("  Admin : support@louetonmatos.fr / Admin123!");
   console.log("  Membre: membre@louetonmatos.fr / Member123!");
 }
 

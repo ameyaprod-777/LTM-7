@@ -72,7 +72,7 @@ npm run db:studio  # Interface Prisma Studio
 
 | Rôle   | Email                    | Mot de passe |
 |--------|--------------------------|--------------|
-| Admin  | admin@louetonmatos.fr    | Admin123!    |
+| Admin  | support@louetonmatos.fr  | Admin123!    |
 | Membre | membre@louetonmatos.fr   | Member123!   |
 
 ## Flux d'adhésion (implémenté)

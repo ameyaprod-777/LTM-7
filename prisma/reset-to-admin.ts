@@ -6,7 +6,7 @@
  *   FORCE_RESET=1 npm run db:reset:admin (contourne la protection)
  *
  * L'admin créé :
- *   email    : admin@louetonmatos.fr
+ *   email    : support@louetonmatos.fr
  *   password : Admin123!
  *   role     : ADMIN
  */
@@ -17,7 +17,7 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const ADMIN_EMAIL =
-  process.env.ADMIN_EMAIL?.toLowerCase() || "admin@louetonmatos.fr";
+  process.env.ADMIN_EMAIL?.toLowerCase() || "support@louetonmatos.fr";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin123!";
 const ADMIN_NAME = process.env.ADMIN_NAME || "Admin LoueTonMatos";
 
