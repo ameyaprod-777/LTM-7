@@ -23,8 +23,10 @@ export default async function PaymentsSettingsPage() {
       </Link>
       <h1 className="mt-4 text-2xl font-bold text-anthracite">Paiements & virements</h1>
       <p className="mt-1 text-sm text-anthracite-500">
-        Ajoutez votre IBAN pour recevoir vos gains (recommandé), ou configurez
-        Stripe Connect pour des virements automatiques.
+        <strong className="font-medium text-anthracite">Stripe Connect</strong>{" "}
+        est le moyen le plus sécurisé et le plus fiable — c&apos;est celui que
+        LoueTonMatos recommande. L&apos;IBAN reste une alternative rapide pour
+        démarrer.
       </p>
       <div className="mt-8">
         <Suspense fallback={<p className="text-sm text-anthracite-400">Chargement…</p>}>

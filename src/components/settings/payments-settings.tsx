@@ -143,29 +143,123 @@ export function PaymentsSettings() {
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           Vous pouvez publier des annonces : un moyen de recevoir vos fonds est
           configuré
-          {iban?.ibanReady
-            ? " (IBAN)."
-            : readyForPayouts
-              ? " (Stripe Connect)."
+          {readyForPayouts
+            ? " (Stripe Connect)."
+            : iban?.ibanReady
+              ? " (IBAN)."
               : "."}
+          {iban?.ibanReady && !readyForPayouts && (
+            <>
+              {" "}
+              Astuce : passez à Stripe Connect pour des virements automatiques
+              plus sécurisés.
+            </>
+          )}
         </div>
       ) : (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Ajoutez votre <strong>IBAN</strong> ci-dessous pour publier et être
-          payé après chaque location (le plus simple).
+          Configurez un moyen de paiement pour publier.{" "}
+          <strong>Stripe Connect</strong> est recommandé (le plus sûr et
+          fiable) ; l&apos;IBAN permet de démarrer plus vite.
         </div>
       )}
 
-      {/* IBAN — méthode principale */}
+      {/* Stripe Connect — recommandé */}
+      <section className="space-y-4 rounded-xl border-2 border-accent/30 bg-white p-5">
+        {successBanner && (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            Retour Stripe enregistré. Actualisez le statut si besoin.
+          </div>
+        )}
+
+        <div className="flex items-start gap-3">
+          <CreditCard className="h-5 w-5 text-accent" />
+          <div>
+            <p className="font-medium text-anthracite">
+              Stripe Connect{" "}
+              <span className="ml-1 rounded-md bg-accent-muted px-1.5 py-0.5 text-xs font-semibold text-accent">
+                Recommandé
+              </span>
+            </p>
+            <p className="mt-1 text-sm text-anthracite-500">
+              C&apos;est le moyen le plus <strong>sécurisé</strong> et le plus{" "}
+              <strong>fiable</strong> pour recevoir vos gains. Virements
+              automatiques à la clôture, identité vérifiée par Stripe, traçabilité
+              complète. LoueTonMatos recommande cette option.
+            </p>
+          </div>
+        </div>
+
+        {!status?.stripeEnabled ? (
+          <div className="flex gap-3 rounded-lg border border-anthracite-100 bg-anthracite-50 p-3 text-sm text-anthracite-600">
+            <AlertCircle className="h-4 w-4 shrink-0 text-anthracite-400" />
+            Stripe Connect n&apos;est pas activé sur cette instance (
+            <code className="text-xs">STRIPE_CONNECT_ENABLED</code>). Vous
+            pouvez utiliser l&apos;IBAN en attendant.
+          </div>
+        ) : (
+          <>
+            <ul className="space-y-2 text-sm">
+              <li className="flex items-center gap-2">
+                {status.chargesEnabled ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-anthracite-400" />
+                )}
+                Encaissement activé
+              </li>
+              <li className="flex items-center gap-2">
+                {status.payoutsEnabled ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-anthracite-400" />
+                )}
+                Virements activés
+              </li>
+            </ul>
+
+            {message && <p className="text-sm text-red-600">{message}</p>}
+
+            <div className="flex flex-wrap gap-2">
+              <Button loading={connecting} onClick={startOnboarding}>
+                {status.accountId
+                  ? "Mettre à jour Stripe"
+                  : "Configurer Stripe Connect"}
+              </Button>
+              {status.accountId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setLoading(true);
+                    void loadStatus(true).finally(() => setLoading(false));
+                  }}
+                >
+                  Actualiser
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* IBAN — alternative rapide */}
       <section className="space-y-4 rounded-xl border border-anthracite-100 bg-white p-5">
         <div className="flex items-start gap-3">
           <Landmark className="h-5 w-5 text-accent" />
           <div>
-            <p className="font-medium text-anthracite">IBAN (recommandé)</p>
+            <p className="font-medium text-anthracite">
+              IBAN{" "}
+              <span className="ml-1 text-xs font-normal text-anthracite-400">
+                alternative rapide
+              </span>
+            </p>
             <p className="mt-1 text-sm text-anthracite-500">
-              Indiquez le compte sur lequel LoueTonMatos vous versera votre part
-              après chaque location (virement SEPA). Aucun compte Stripe
-              obligatoire.
+              Pour démarrer sans onboarding Stripe : indiquez le compte sur
+              lequel LoueTonMatos vous versera votre part (virement SEPA manuel
+              après chaque location). Moins automatisé que Connect, mais
+              suffisant pour publier.
             </p>
           </div>
         </div>
@@ -221,89 +315,10 @@ export function PaymentsSettings() {
               pour effectuer le virement.
             </p>
           </div>
-          <Button type="submit" loading={savingIban}>
+          <Button type="submit" variant="outline" loading={savingIban}>
             {iban?.ibanReady ? "Mettre à jour l’IBAN" : "Enregistrer mon IBAN"}
           </Button>
         </form>
-      </section>
-
-      {/* Stripe Connect — optionnel */}
-      <section className="space-y-4 rounded-xl border border-anthracite-100 bg-white p-5">
-        {successBanner && (
-          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            Retour Stripe enregistré. Actualisez le statut si besoin.
-          </div>
-        )}
-
-        <div className="flex items-start gap-3">
-          <CreditCard className="h-5 w-5 text-accent" />
-          <div>
-            <p className="font-medium text-anthracite">
-              Stripe Connect (optionnel)
-            </p>
-            <p className="mt-1 text-sm text-anthracite-500">
-              Virements automatiques à la clôture. Plus long à configurer
-              (vérification d&apos;identité Stripe). L&apos;IBAN ci-dessus
-              suffit pour démarrer.
-            </p>
-          </div>
-        </div>
-
-        {!status?.stripeEnabled ? (
-          <div className="flex gap-3 rounded-lg border border-anthracite-100 bg-anthracite-50 p-3 text-sm text-anthracite-600">
-            <AlertCircle className="h-4 w-4 shrink-0 text-anthracite-400" />
-            Stripe Connect n&apos;est pas activé sur cette instance (
-            <code className="text-xs">STRIPE_CONNECT_ENABLED</code>).
-          </div>
-        ) : (
-          <>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-center gap-2">
-                {status.chargesEnabled ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-anthracite-400" />
-                )}
-                Encaissement activé
-              </li>
-              <li className="flex items-center gap-2">
-                {status.payoutsEnabled ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-anthracite-400" />
-                )}
-                Virements activés
-              </li>
-            </ul>
-
-            {message && <p className="text-sm text-red-600">{message}</p>}
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                loading={connecting}
-                onClick={startOnboarding}
-              >
-                {status.accountId
-                  ? "Mettre à jour Stripe"
-                  : "Configurer Stripe Connect"}
-              </Button>
-              {status.accountId && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setLoading(true);
-                    void loadStatus(true).finally(() => setLoading(false));
-                  }}
-                >
-                  Actualiser
-                </Button>
-              )}
-            </div>
-          </>
-        )}
       </section>
     </div>
   );
