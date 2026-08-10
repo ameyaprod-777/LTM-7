@@ -44,6 +44,10 @@ export async function deleteUserAccount(userId: string) {
         identityExpiresAt: null,
         emailVerified: null,
         stripeAccountId: null,
+        ibanEncrypted: null,
+        ibanLast4: null,
+        ibanHolderName: null,
+        ibanUpdatedAt: null,
       },
     });
   });
