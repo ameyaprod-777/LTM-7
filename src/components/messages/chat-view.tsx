@@ -36,6 +36,7 @@ export function ChatView({
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<{
     url: string;
     name: string;
@@ -44,7 +45,9 @@ export function ChatView({
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/messages/${conversationId}`);
+    const res = await fetch(`/api/messages/${conversationId}`, {
+      cache: "no-store",
+    });
     if (res.ok) {
       const data = (await res.json()) as Message[];
       setMessages(data);
@@ -60,11 +63,16 @@ export function ChatView({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Polling toujours actif : fonctionne en prod sans Pusher, et sert de
+  // filet si Pusher est mal configuré ou l’auth canal échoue.
   useEffect(() => {
-    if (!pusherKey) {
-      const id = setInterval(() => void load(), 5000);
-      return () => clearInterval(id);
-    }
+    const intervalMs = pusherKey ? 8000 : 3000;
+    const id = setInterval(() => void load(), intervalMs);
+    return () => clearInterval(id);
+  }, [load, pusherKey]);
+
+  useEffect(() => {
+    if (!pusherKey) return;
 
     const pusher = new Pusher(pusherKey, {
       cluster: pusherCluster ?? "eu",
@@ -102,39 +110,73 @@ export function ChatView({
   const send = async () => {
     if (!body.trim() && !pendingAttachment) return;
     setLoading(true);
-    await fetch("/api/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        conversationId,
-        body,
-        attachmentUrl: pendingAttachment?.url,
-        attachmentName: pendingAttachment?.name,
-        attachmentMime: pendingAttachment?.mime,
-      }),
-    });
-    setBody("");
-    setPendingAttachment(null);
-    setLoading(false);
-    void load();
+    setSendError(null);
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId,
+          body,
+          attachmentUrl: pendingAttachment?.url,
+          attachmentName: pendingAttachment?.name,
+          attachmentMime: pendingAttachment?.mime,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!res.ok) {
+        setSendError(
+          typeof json.error === "string"
+            ? json.error
+            : "Impossible d’envoyer le message."
+        );
+        return;
+      }
+      setBody("");
+      setPendingAttachment(null);
+      void load();
+    } catch {
+      setSendError("Erreur réseau. Réessayez.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const uploadFile = async (file: File) => {
     setUploading(true);
+    setSendError(null);
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch(`/api/messages/${conversationId}/upload`, {
-      method: "POST",
-      body: formData,
-    });
-    const json = await res.json();
-    setUploading(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/messages/${conversationId}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        url?: string;
+        name?: string;
+        mime?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.url) {
+        setSendError(
+          typeof json.error === "string"
+            ? json.error
+            : "Échec de l’envoi de la pièce jointe."
+        );
+        return;
+      }
       setPendingAttachment({
         url: json.url,
-        name: json.name,
-        mime: json.mime,
+        name: json.name ?? file.name,
+        mime: json.mime ?? file.type,
       });
+    } catch {
+      setSendError("Erreur réseau lors de l’upload.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -272,6 +314,12 @@ export function ChatView({
           >
             Retirer
           </button>
+        </p>
+      )}
+
+      {sendError && (
+        <p className="border-t border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {sendError}
         </p>
       )}
 

@@ -94,6 +94,30 @@ npx prisma migrate status
 
 ---
 
+## Messagerie (prod)
+
+La messagerie **fonctionne sans Pusher** (rafraîchissement automatique toutes les ~3 s).
+
+Pour le temps réel immédiat (recommandé) :
+
+1. Créer une app [Pusher Channels](https://dashboard.pusher.com) (cluster `eu`)
+2. Ajouter dans `.env.production` :
+
+```bash
+PUSHER_APP_ID=…
+PUSHER_KEY=…
+PUSHER_SECRET=…
+PUSHER_CLUSTER=eu
+NEXT_PUBLIC_PUSHER_KEY=…   # identique à PUSHER_KEY
+NEXT_PUBLIC_PUSHER_CLUSTER=eu
+```
+
+3. Rebuild + restart PM2 (`git pull` ou `./deploy/pm2-deploy.sh`)
+
+Prérequis métier : seuls les **membres ACTIVE** (rôle MEMBER/ADMIN) peuvent envoyer des messages (`/dashboard/messages`).
+
+---
+
 ## Docker
 
 L’ancien flux Docker (`deploy/deploy.sh`, `docker-compose.prod.yml`) reste disponible si besoin, mais **le flux recommandé PM2** est `./deploy/pm2-deploy.sh`.

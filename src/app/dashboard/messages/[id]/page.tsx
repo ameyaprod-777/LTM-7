@@ -138,8 +138,16 @@ export default async function ConversationPage({
         <ChatView
           conversationId={params.id}
           currentUserId={session.user.id}
-          pusherKey={process.env.NEXT_PUBLIC_PUSHER_KEY ?? null}
-          pusherCluster={process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? "eu"}
+          pusherKey={
+            process.env.NEXT_PUBLIC_PUSHER_KEY ||
+            process.env.PUSHER_KEY ||
+            null
+          }
+          pusherCluster={
+            process.env.NEXT_PUBLIC_PUSHER_CLUSTER ||
+            process.env.PUSHER_CLUSTER ||
+            "eu"
+          }
         />
       </div>
     </div>

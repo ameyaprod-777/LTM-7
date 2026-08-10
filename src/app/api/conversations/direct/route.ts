@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireMemberApi } from "@/lib/api-auth";
 import { getOrCreateDirectConversation } from "@/lib/conversations";
-import { createNotification } from "@/lib/notifications";
-import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
   userId: z.string().min(1),
@@ -27,21 +25,7 @@ export async function POST(req: Request) {
       parsed.data.message
     );
 
-    if (parsed.data.userId !== auth.session.user.id) {
-      const sender = await prisma.user.findUnique({
-        where: { id: auth.session.user.id },
-        select: { name: true },
-      });
-
-      await createNotification({
-        userId: parsed.data.userId,
-        type: "NEW_MESSAGE",
-        title: "Nouveau message",
-        body: `${sender?.name ?? "Un membre"} vous a contacté`,
-        link: `/dashboard/messages/${conversation.id}`,
-      });
-    }
-
+    // Notification + email + Pusher : gérés par createConversationMessage
     return NextResponse.json({ conversationId: conversation.id });
   } catch (err) {
     const code = err instanceof Error ? err.message : "";

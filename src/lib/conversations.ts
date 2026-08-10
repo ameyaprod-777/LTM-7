@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { createConversationMessage } from "@/lib/messaging";
 
 export function makeDirectConversationKey(userIdA: string, userIdB: string) {
   return [userIdA, userIdB].sort().join("_");
@@ -35,16 +36,10 @@ export async function getOrCreateDirectConversation(
 
   if (existing) {
     if (initialMessage?.trim()) {
-      await prisma.message.create({
-        data: {
-          conversationId: existing.id,
-          senderId: initiatorId,
-          body: initialMessage.trim(),
-        },
-      });
-      await prisma.conversation.update({
-        where: { id: existing.id },
-        data: { updatedAt: new Date() },
+      await createConversationMessage({
+        conversationId: existing.id,
+        senderId: initiatorId,
+        body: initialMessage.trim(),
       });
     }
     return existing;
@@ -64,12 +59,10 @@ export async function getOrCreateDirectConversation(
     initialMessage?.trim() ||
     `Bonjour ${target.name ?? ""}, je souhaite échanger avec vous via LoueTonMatos.`.trim();
 
-  await prisma.message.create({
-    data: {
-      conversationId: conversation.id,
-      senderId: initiatorId,
-      body: greeting,
-    },
+  await createConversationMessage({
+    conversationId: conversation.id,
+    senderId: initiatorId,
+    body: greeting,
   });
 
   return conversation;
