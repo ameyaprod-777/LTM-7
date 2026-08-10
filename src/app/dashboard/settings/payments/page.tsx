@@ -23,7 +23,8 @@ export default async function PaymentsSettingsPage() {
       </Link>
       <h1 className="mt-4 text-2xl font-bold text-anthracite">Paiements & virements</h1>
       <p className="mt-1 text-sm text-anthracite-500">
-        Configuration de votre compte pour recevoir les paiements des locations.
+        Ajoutez votre IBAN pour recevoir vos gains (recommandé), ou configurez
+        Stripe Connect pour des virements automatiques.
       </p>
       <div className="mt-8">
         <Suspense fallback={<p className="text-sm text-anthracite-400">Chargement…</p>}>

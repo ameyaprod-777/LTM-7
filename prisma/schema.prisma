@@ -97,6 +97,16 @@ enum PaymentStatus {
   FAILED
 }
 
+enum PayoutMethod {
+  MANUAL_IBAN
+  STRIPE_CONNECT
+}
+
+enum ManualPayoutStatus {
+  PENDING
+  PAID
+}
+
 enum DeliveryTaskStatus {
   PENDING
   SCHEDULED
@@ -277,6 +287,14 @@ model User {
   stripePayoutsEnabled  Boolean   @default(false)
   stripeOnboardingAt    DateTime?
 
+  /// Mode de réception des fonds (IBAN manuel prioritaire pour la bêta)
+  payoutMethod          PayoutMethod @default(MANUAL_IBAN)
+  /// IBAN chiffré (AES-256-GCM) — jamais exposé hors admin / propriétaire
+  ibanEncrypted         String?      @db.Text
+  ibanLast4             String?
+  ibanHolderName        String?
+  ibanUpdatedAt         DateTime?
+
   responseRate      Float?
   avgResponseTimeMs Int?
 
@@ -307,6 +325,7 @@ model User {
   invitationUsed    Invitation?  @relation("InvitationUsed")
   reviewedApplications MembershipApplication[] @relation("ReviewedBy")
   conversationsInitiated Conversation[] @relation("ConversationInitiated")
+  manualPayoutsPaid Payment[] @relation("ManualPayoutsPaid")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -576,6 +595,13 @@ model Payment {
   status           PaymentStatus @default(PENDING)
   failureReason    String?
   releasedAt       DateTime?
+
+  /// Virement SEPA manuel (quand le loueur a un IBAN, pas Connect)
+  manualPayoutStatus ManualPayoutStatus?
+  manualPayoutPaidAt DateTime?
+  manualPayoutPaidById String?
+  manualPayoutPaidBy   User?     @relation("ManualPayoutsPaid", fields: [manualPayoutPaidById], references: [id], onDelete: SetNull)
+  manualPayoutNote     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

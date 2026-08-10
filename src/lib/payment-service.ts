@@ -1,6 +1,10 @@
 import type { Booking, Payment, User } from "@prisma/client";
 import { stripe } from "@/lib/stripe";
 import { stripeConnectEnabled, stripeEnabled } from "@/lib/stripe-config";
+import {
+  isManualIbanReadyForPayouts,
+  isStripeConnectReadyForPayouts,
+} from "@/lib/stripe-connect-gate";
 
 type BookingWithListing = Booking & {
   listing: { title: string };
@@ -100,8 +104,7 @@ export async function processBookingRefund(
   let stripeRefundId: string | null = null;
 
   const paymentIntentId = payment.stripePaymentId;
-  const isPaymentIntent =
-    paymentIntentId?.startsWith("pi_") ?? false;
+  const isPaymentIntent = paymentIntentId?.startsWith("pi_") ?? false;
 
   if (
     stripeEnabled() &&
@@ -123,37 +126,64 @@ export async function processBookingRefund(
   return { stripeRefundId };
 }
 
+export type ListerPayoutFields = Pick<
+  User,
+  | "stripeAccountId"
+  | "stripeChargesEnabled"
+  | "stripePayoutsEnabled"
+  | "ibanEncrypted"
+  | "ibanLast4"
+  | "ibanHolderName"
+  | "payoutMethod"
+>;
+
+export type ReleaseBookingFundsResult = {
+  stripeTransferId: string | null;
+  /** true → admin doit faire un virement SEPA */
+  manualPayoutPending: boolean;
+};
+
 /**
- * Libération des fonds au loueur : statut RELEASED en base.
- * Transfer Connect (`transfers.create`) uniquement si Connect est activé
- * et que le loueur a un compte lié.
+ * Libération des fonds au loueur :
+ * - Stripe Connect prêt → transfer automatique
+ * - sinon IBAN → file d’attente virement manuel (admin)
  */
 export async function releaseBookingFunds(
   payment: Payment,
-  lister: Pick<User, "stripeAccountId" | "stripeChargesEnabled">,
+  lister: ListerPayoutFields,
   listerNetAmount: number
-): Promise<{ stripeTransferId: string | null }> {
+): Promise<ReleaseBookingFundsResult> {
   let stripeTransferId: string | null = null;
 
-  if (
+  const canConnectTransfer =
     stripeConnectEnabled() &&
     stripe &&
-    lister.stripeAccountId &&
-    lister.stripeChargesEnabled &&
-    payment.stripePaymentId?.startsWith("pi_")
-  ) {
+    isStripeConnectReadyForPayouts(lister) &&
+    payment.stripePaymentId?.startsWith("pi_");
+
+  if (canConnectTransfer) {
     try {
-      const transfer = await stripe.transfers.create({
+      const transfer = await stripe!.transfers.create({
         amount: listerNetAmount,
         currency: "eur",
-        destination: lister.stripeAccountId,
+        destination: lister.stripeAccountId!,
         transfer_group: payment.bookingId,
       });
       stripeTransferId = transfer.id;
+      return { stripeTransferId, manualPayoutPending: false };
     } catch (err) {
       console.error("[payment-service] transfer Stripe échoué:", err);
+      // Fallback IBAN si disponible
     }
   }
 
-  return { stripeTransferId };
+  if (isManualIbanReadyForPayouts(lister)) {
+    return { stripeTransferId: null, manualPayoutPending: true };
+  }
+
+  // Ni Connect ni IBAN : on marque quand même RELEASED mais sans payout
+  console.warn(
+    `[payment-service] Aucun moyen de payout pour booking ${payment.bookingId}`
+  );
+  return { stripeTransferId: null, manualPayoutPending: false };
 }

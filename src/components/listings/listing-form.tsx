@@ -162,7 +162,11 @@ export function ListingForm({ listingId, defaultValues }: Props) {
       return;
     }
     const errBody = await res.json().catch(() => ({}));
-    if (errBody.code === "STRIPE_CONNECT_REQUIRED" && errBody.redirectTo) {
+    if (
+      (errBody.code === "STRIPE_CONNECT_REQUIRED" ||
+        errBody.code === "PAYOUT_SETUP_REQUIRED") &&
+      errBody.redirectTo
+    ) {
       toastError(
         typeof errBody.error === "string"
           ? errBody.error

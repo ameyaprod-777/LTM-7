@@ -56,6 +56,11 @@ export async function PATCH(
           name: true,
           stripeAccountId: true,
           stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
+          payoutMethod: true,
+          ibanEncrypted: true,
+          ibanLast4: true,
+          ibanHolderName: true,
         },
       },
       renter: { select: { email: true, name: true } },
@@ -346,6 +351,7 @@ export async function PATCH(
     const listerNet = booking.rentalFee + booking.deliveryFee;
 
     let stripeTransferId: string | null = null;
+    let manualPayoutPending = false;
     if (booking.payment?.status === "HELD") {
       const release = await releaseBookingFunds(
         booking.payment,
@@ -353,6 +359,7 @@ export async function PATCH(
         listerNet
       );
       stripeTransferId = release.stripeTransferId;
+      manualPayoutPending = release.manualPayoutPending;
     }
 
     await prisma.booking.update({
@@ -371,8 +378,20 @@ export async function PATCH(
           status: "RELEASED",
           releasedAt: new Date(),
           stripeTransferId,
+          ...(manualPayoutPending
+            ? { manualPayoutStatus: "PENDING" as const }
+            : {}),
         },
       });
+
+      if (manualPayoutPending) {
+        await notifyAdmins({
+          type: "BOOKING_CONFIRMED",
+          title: "Virement IBAN à effectuer",
+          body: `${booking.listing.title} — ${(listerNet / 100).toFixed(2)} € à verser au loueur`,
+          link: "/admin/payouts",
+        });
+      }
     }
 
     await createNotification({

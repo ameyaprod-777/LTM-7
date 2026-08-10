@@ -45,7 +45,11 @@ export function ListingRowActions({
         code?: string;
         redirectTo?: string;
       };
-      if (json.code === "STRIPE_CONNECT_REQUIRED" && json.redirectTo) {
+      if (
+        (json.code === "STRIPE_CONNECT_REQUIRED" ||
+          json.code === "PAYOUT_SETUP_REQUIRED") &&
+        json.redirectTo
+      ) {
         router.push(json.redirectTo);
         return;
       }

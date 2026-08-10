@@ -17,7 +17,15 @@ export async function PATCH(
     include: {
       payment: true,
       lister: {
-        select: { stripeAccountId: true, stripeChargesEnabled: true },
+        select: {
+          stripeAccountId: true,
+          stripeChargesEnabled: true,
+          stripePayoutsEnabled: true,
+          payoutMethod: true,
+          ibanEncrypted: true,
+          ibanLast4: true,
+          ibanHolderName: true,
+        },
       },
     },
   });
@@ -47,6 +55,7 @@ export async function PATCH(
     }
     const listerNet = booking.rentalFee + booking.deliveryFee;
     let stripeTransferId: string | null = null;
+    let manualPayoutPending = false;
     if (booking.payment?.status === "HELD") {
       const release = await releaseBookingFunds(
         booking.payment,
@@ -54,6 +63,7 @@ export async function PATCH(
         listerNet
       );
       stripeTransferId = release.stripeTransferId;
+      manualPayoutPending = release.manualPayoutPending;
     }
     await prisma.booking.update({
       where: { id: params.id },
@@ -70,6 +80,9 @@ export async function PATCH(
           status: "RELEASED",
           releasedAt: new Date(),
           stripeTransferId,
+          ...(manualPayoutPending
+            ? { manualPayoutStatus: "PENDING" as const }
+            : {}),
         },
       });
     }

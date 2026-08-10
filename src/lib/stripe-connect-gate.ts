@@ -1,23 +1,34 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { stripeConnectEnabled } from "@/lib/stripe-config";
+import type { PayoutMethod } from "@prisma/client";
 
 export const STRIPE_CONNECT_REQUIRED_CODE = "STRIPE_CONNECT_REQUIRED";
+export const PAYOUT_SETUP_REQUIRED_CODE = "PAYOUT_SETUP_REQUIRED";
 
-export const STRIPE_CONNECT_REQUIRED_MESSAGE =
-  "Configurez Stripe Connect pour recevoir vos paiements sur votre compte bancaire avant de publier.";
+export const PAYOUT_SETUP_REQUIRED_MESSAGE =
+  "Ajoutez votre IBAN (ou Stripe Connect) dans Paiements pour recevoir vos fonds avant de publier.";
+
+export const STRIPE_CONNECT_REQUIRED_MESSAGE = PAYOUT_SETUP_REQUIRED_MESSAGE;
 
 export const STRIPE_CONNECT_PAYMENTS_PATH = "/dashboard/settings/payments";
+export const PAYOUT_SETTINGS_PATH = "/dashboard/settings/payments";
 
-export type StripeConnectFields = {
+export type PayoutReadyFields = {
+  payoutMethod: PayoutMethod;
+  ibanLast4: string | null;
+  ibanHolderName: string | null;
+  ibanEncrypted: string | null;
   stripeAccountId: string | null;
   stripeChargesEnabled: boolean;
   stripePayoutsEnabled: boolean;
 };
 
-/** Compte prêt à recevoir un transfer + payout bancaire. */
 export function isStripeConnectReadyForPayouts(
-  user: StripeConnectFields | null | undefined
+  user: Pick<
+    PayoutReadyFields,
+    "stripeAccountId" | "stripeChargesEnabled" | "stripePayoutsEnabled"
+  > | null | undefined
 ): boolean {
   if (!user) return false;
   return Boolean(
@@ -27,10 +38,45 @@ export function isStripeConnectReadyForPayouts(
   );
 }
 
-export async function getUserStripeConnectFields(userId: string) {
+/** IBAN enregistré = prêt pour virement SEPA manuel. */
+export function isManualIbanReadyForPayouts(
+  user: Pick<
+    PayoutReadyFields,
+    "ibanLast4" | "ibanHolderName" | "ibanEncrypted"
+  > | null | undefined
+): boolean {
+  if (!user) return false;
+  return Boolean(
+    user.ibanEncrypted &&
+      user.ibanLast4 &&
+      user.ibanHolderName?.trim()
+  );
+}
+
+/** Prêt à publier / recevoir : IBAN ou Connect. */
+export function isPayoutReadyForPublish(
+  user: PayoutReadyFields | null | undefined
+): boolean {
+  if (!user) return false;
+  if (isManualIbanReadyForPayouts(user)) return true;
+  if (stripeConnectEnabled() && isStripeConnectReadyForPayouts(user)) {
+    return true;
+  }
+  // Connect désactivé sur la plateforme : IBAN obligatoire en prod
+  if (!stripeConnectEnabled()) {
+    return isManualIbanReadyForPayouts(user);
+  }
+  return false;
+}
+
+export async function getUserPayoutFields(userId: string) {
   return prisma.user.findUnique({
     where: { id: userId },
     select: {
+      payoutMethod: true,
+      ibanLast4: true,
+      ibanHolderName: true,
+      ibanEncrypted: true,
       stripeAccountId: true,
       stripeChargesEnabled: true,
       stripePayoutsEnabled: true,
@@ -38,20 +84,26 @@ export async function getUserStripeConnectFields(userId: string) {
   });
 }
 
+/** @deprecated Prefer getUserPayoutFields */
+export async function getUserStripeConnectFields(userId: string) {
+  return getUserPayoutFields(userId);
+}
+
 /**
- * Bloque la publication si Connect est activé sur la plateforme
- * et que l'utilisateur n'a pas terminé l'onboarding.
- * Si Connect est désactivé (dev), on ne bloque pas.
+ * Bloque la publication si aucun moyen de recevoir les fonds
+ * (IBAN manuel ou Stripe Connect complet).
  */
 export async function assertStripeConnectReadyForPublish(userId: string): Promise<
   { ok: true } | { ok: false; response: NextResponse }
 > {
-  if (!stripeConnectEnabled()) {
-    return { ok: true };
-  }
+  return assertPayoutReadyForPublish(userId);
+}
 
-  const user = await getUserStripeConnectFields(userId);
-  if (isStripeConnectReadyForPayouts(user)) {
+export async function assertPayoutReadyForPublish(userId: string): Promise<
+  { ok: true } | { ok: false; response: NextResponse }
+> {
+  const user = await getUserPayoutFields(userId);
+  if (isPayoutReadyForPublish(user)) {
     return { ok: true };
   }
 
@@ -59,9 +111,9 @@ export async function assertStripeConnectReadyForPublish(userId: string): Promis
     ok: false,
     response: NextResponse.json(
       {
-        error: STRIPE_CONNECT_REQUIRED_MESSAGE,
-        code: STRIPE_CONNECT_REQUIRED_CODE,
-        redirectTo: STRIPE_CONNECT_PAYMENTS_PATH,
+        error: PAYOUT_SETUP_REQUIRED_MESSAGE,
+        code: PAYOUT_SETUP_REQUIRED_CODE,
+        redirectTo: PAYOUT_SETTINGS_PATH,
       },
       { status: 403 }
     ),
@@ -69,7 +121,10 @@ export async function assertStripeConnectReadyForPublish(userId: string): Promis
 }
 
 export async function userNeedsStripeConnectSetup(userId: string): Promise<boolean> {
-  if (!stripeConnectEnabled()) return false;
-  const user = await getUserStripeConnectFields(userId);
-  return !isStripeConnectReadyForPayouts(user);
+  return userNeedsPayoutSetup(userId);
+}
+
+export async function userNeedsPayoutSetup(userId: string): Promise<boolean> {
+  const user = await getUserPayoutFields(userId);
+  return !isPayoutReadyForPublish(user);
 }

@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Truck,
   Download,
+  Landmark,
 } from "lucide-react";
 
 const links: {
@@ -35,6 +36,7 @@ const links: {
   { href: "/admin/listings", label: "Annonces", icon: Package },
   { href: "/admin/services", label: "Services", icon: Briefcase },
   { href: "/admin/bookings", label: "Réservations", icon: Calendar },
+  { href: "/admin/payouts", label: "Virements IBAN", icon: Landmark },
   { href: "/admin/forum", label: "Fil Actu", icon: Radio },
   { href: "/admin/reviews", label: "Avis", icon: Star },
   { href: "/admin/tickets", label: "Support", icon: LifeBuoy },

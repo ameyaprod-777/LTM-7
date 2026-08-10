@@ -11,6 +11,7 @@ Historique aligné sur le schéma actuel (Stripe Identity, projets vidéo).
 | `20260101000000_init` | Schéma initial (sans KYC fichier) |
 | `20260808120000_stripe_identity_booking_completion` | Stripe Identity + `Booking.renterCompletedAt` |
 | `20260810160000_project_video_url` | `Project.videoUrl` (YouTube / Vimeo) |
+| `20260810180000_manual_iban_payouts` | IBAN loueurs + file virements admin |
 
 ---
 
