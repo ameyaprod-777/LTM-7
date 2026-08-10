@@ -84,14 +84,13 @@ export async function consumeEmailVerificationToken(email: string, token: string
 
   if (!record) return false;
 
-  await prisma.verificationToken.delete({
+  // deleteMany : pas d'exception si une requête concurrente a déjà consommé le token
+  const deleted = await prisma.verificationToken.deleteMany({
     where: {
-      identifier_token: {
-        identifier: record.identifier,
-        token: record.token,
-      },
+      identifier: record.identifier,
+      token: record.token,
     },
   });
 
-  return true;
+  return deleted.count > 0;
 }

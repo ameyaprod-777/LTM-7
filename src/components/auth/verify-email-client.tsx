@@ -8,10 +8,14 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 
 type Status = "idle" | "loading" | "ok" | "error";
 
+function verificationLockKey(email: string, token: string) {
+  return `ltm-email-verify:${email}:${token}`;
+}
+
 export function VerifyEmailClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { data: session, update } = useSession();
+  const { data: session, update, status: sessionStatus } = useSession();
 
   const token = searchParams.get("token");
   const email = searchParams.get("email");
@@ -22,7 +26,9 @@ export function VerifyEmailClient() {
     token && email ? "loading" : "idle"
   );
   const [countdown, setCountdown] = useState(3);
-  const alreadyVerified = useRef(false);
+  const startedRef = useRef(false);
+  const statusRef = useRef<Status>(status);
+  statusRef.current = status;
 
   const nextStepHref = invite
     ? `/verify-identity?invite=${encodeURIComponent(invite)}`
@@ -31,10 +37,25 @@ export function VerifyEmailClient() {
     ? `/login?verified=1&callbackUrl=${encodeURIComponent(nextStepHref)}`
     : `/login?verified=1&callbackUrl=${encodeURIComponent("/verify-identity")}`;
 
-  // 1) Envoie la requête de vérification si token + email présents
+  // 1) Vérification unique (idempotente côté API + verrou navigateur)
   useEffect(() => {
-    if (!token || !email || alreadyVerified.current) return;
-    alreadyVerified.current = true;
+    if (!token || !email || startedRef.current) return;
+    startedRef.current = true;
+
+    const lockKey = verificationLockKey(email, token);
+    try {
+      if (sessionStorage.getItem(lockKey) === "ok") {
+        setStatus("ok");
+        return;
+      }
+      if (sessionStorage.getItem(lockKey) === "pending") {
+        // Une autre instance (Strict Mode / double mount) a déjà lancé l'appel
+        return;
+      }
+      sessionStorage.setItem(lockKey, "pending");
+    } catch {
+      // sessionStorage indisponible — on continue
+    }
 
     (async () => {
       try {
@@ -45,32 +66,47 @@ export function VerifyEmailClient() {
         });
 
         if (!res.ok) {
+          // Ne pas écraser un succès déjà affiché (course entre 2 requêtes)
+          if (statusRef.current === "ok") return;
+          try {
+            sessionStorage.removeItem(lockKey);
+          } catch {
+            /* ignore */
+          }
           setStatus("error");
           return;
         }
 
-        // Rafraîchit le JWT (le callback jwt refetch depuis la DB sur
-        // trigger === "update", donc emailVerified sera à jour).
         try {
-          await update();
+          sessionStorage.setItem(lockKey, "ok");
         } catch {
-          // ignore : la session peut ne pas exister (lien ouvert depuis un
-          // autre navigateur), on gèrera via redirection vers /login.
+          /* ignore */
         }
 
-        // Rafraîchit les server components (header, bannières, etc.)
-        router.refresh();
+        try {
+          await update({ user: { emailVerified: new Date().toISOString() } });
+        } catch {
+          // Pas de session (lien ouvert ailleurs) — redirection login ensuite
+        }
 
+        router.refresh();
         setStatus("ok");
       } catch {
+        if (statusRef.current === "ok") return;
+        try {
+          sessionStorage.removeItem(lockKey);
+        } catch {
+          /* ignore */
+        }
         setStatus("error");
       }
     })();
   }, [token, email, update, router]);
 
-  // 2) Décompte + redirection automatique une fois vérifié
+  // 2) Décompte + redirection (attendre que la session soit connue)
   useEffect(() => {
     if (status !== "ok") return;
+    if (sessionStatus === "loading") return;
 
     const target = session?.user ? nextStepHref : loginHref;
 
@@ -86,9 +122,8 @@ export function VerifyEmailClient() {
     }, 1000);
 
     return () => clearInterval(tick);
-  }, [status, session, nextStepHref, loginHref, router]);
+  }, [status, session, sessionStatus, nextStepHref, loginHref, router]);
 
-  // ── Rendus ────────────────────────────────────────────────────────────────
   if (status === "idle") {
     return (
       <div className="space-y-4">
@@ -141,9 +176,11 @@ export function VerifyEmailClient() {
               Adresse email confirmée !
             </p>
             <p className="mt-1 text-xs text-green-800">
-              {session?.user
-                ? `Redirection automatique vers l'étape suivante dans ${countdown} s…`
-                : `Redirection vers la connexion dans ${countdown} s…`}
+              {sessionStatus === "loading"
+                ? "Finalisation…"
+                : session?.user
+                  ? `Redirection automatique vers l'étape suivante dans ${countdown} s…`
+                  : `Redirection vers la connexion dans ${countdown} s…`}
             </p>
           </div>
         </div>
