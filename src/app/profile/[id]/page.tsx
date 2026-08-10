@@ -16,8 +16,8 @@ import {
   isIdentityExpired,
 } from "@/lib/membership-labels";
 import { ContactMemberButton } from "@/components/messages/contact-member-button";
-import { VideoEmbed } from "@/components/media/video-embed";
-import { MAX_PROFILE_PROJECTS } from "@/lib/video-embed";
+import { VideoThumbnailLink } from "@/components/media/video-thumbnail-link";
+import { MAX_PROFILE_PROJECTS, resolveVideoThumbnail } from "@/lib/video-embed";
 
 export default async function ProfilePage({
   params,
@@ -74,6 +74,26 @@ export default async function ProfilePage({
   if (!user) notFound();
 
   const reviewStats = await getUserReviewStats(params.id);
+
+  const projectsWithThumbs = await Promise.all(
+    user.projects.slice(0, MAX_PROFILE_PROJECTS).map(async (p) => {
+      if (!p.videoUrl) {
+        return {
+          ...p,
+          href: null as string | null,
+          thumbnailUrl: p.coverImage,
+          provider: null as null,
+        };
+      }
+      const media = await resolveVideoThumbnail(p.videoUrl);
+      return {
+        ...p,
+        href: media.href,
+        thumbnailUrl: media.thumbnailUrl ?? p.coverImage,
+        provider: media.provider,
+      };
+    })
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
@@ -148,23 +168,48 @@ export default async function ProfilePage({
         </div>
       </div>
 
-      {user.projects.length > 0 && (
+      {projectsWithThumbs.length > 0 && (
         <section className="mt-12">
           <h2 className="text-xl font-semibold text-anthracite">Projets</h2>
           <div className="mt-4 grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
-            {user.projects.slice(0, MAX_PROFILE_PROJECTS).map((p) => (
-              <article key={p.id} className="overflow-hidden rounded-xl border border-anthracite-100">
-                {p.videoUrl ? (
-                  <VideoEmbed url={p.videoUrl} title={p.title} />
-                ) : p.coverImage ? (
+            {projectsWithThumbs.map((p) => (
+              <article
+                key={p.id}
+                className="overflow-hidden rounded-xl border border-anthracite-100"
+              >
+                {p.href ? (
+                  <VideoThumbnailLink
+                    href={p.href}
+                    title={p.title}
+                    thumbnailUrl={p.thumbnailUrl}
+                    provider={p.provider}
+                  />
+                ) : p.thumbnailUrl ? (
                   <div className="relative aspect-video overflow-hidden bg-anthracite-100">
-                    <Image src={p.coverImage} alt="" fill className="object-cover" unoptimized />
+                    <Image
+                      src={p.thumbnailUrl}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
                   </div>
                 ) : null}
                 <div className="p-4">
-                  <h3 className="font-semibold text-anthracite">{p.title}</h3>
+                  {p.href ? (
+                    <a
+                      href={p.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-anthracite hover:text-accent"
+                    >
+                      {p.title}
+                    </a>
+                  ) : (
+                    <h3 className="font-semibold text-anthracite">{p.title}</h3>
+                  )}
                   {p.description && (
-                    <p className="mt-1 text-sm text-anthracite-500 whitespace-pre-wrap">
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-anthracite-500">
                       {p.description}
                     </p>
                   )}

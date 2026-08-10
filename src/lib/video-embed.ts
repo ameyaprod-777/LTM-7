@@ -11,6 +11,8 @@ export type ParsedVideo = {
   canonicalUrl: string;
   /** URL iframe (youtube-nocookie / player.vimeo) */
   embedUrl: string;
+  /** Miniature directe quand disponible (YouTube) */
+  thumbnailUrl: string | null;
 };
 
 const YT_HOSTS = new Set([
@@ -84,6 +86,7 @@ export function parseVideoUrl(raw: string): ParsedVideo | null {
       id: yt,
       canonicalUrl: `https://www.youtube.com/watch?v=${yt}`,
       embedUrl: `https://www.youtube-nocookie.com/embed/${yt}`,
+      thumbnailUrl: `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`,
     };
   }
 
@@ -94,10 +97,55 @@ export function parseVideoUrl(raw: string): ParsedVideo | null {
       id: vimeo,
       canonicalUrl: `https://vimeo.com/${vimeo}`,
       embedUrl: `https://player.vimeo.com/video/${vimeo}`,
+      thumbnailUrl: null,
     };
   }
 
   return null;
+}
+
+/** Récupère une miniature Vimeo via oEmbed (côté serveur). */
+export async function resolveVideoThumbnail(
+  rawUrl: string
+): Promise<{
+  href: string;
+  thumbnailUrl: string | null;
+  provider: VideoProvider | null;
+}> {
+  const parsed = parseVideoUrl(rawUrl);
+  if (!parsed) {
+    return { href: rawUrl, thumbnailUrl: null, provider: null };
+  }
+  if (parsed.thumbnailUrl) {
+    return {
+      href: parsed.canonicalUrl,
+      thumbnailUrl: parsed.thumbnailUrl,
+      provider: parsed.provider,
+    };
+  }
+  if (parsed.provider === "vimeo") {
+    try {
+      const res = await fetch(
+        `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(parsed.canonicalUrl)}`,
+        { next: { revalidate: 86400 } }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { thumbnail_url?: string };
+        return {
+          href: parsed.canonicalUrl,
+          thumbnailUrl: data.thumbnail_url ?? null,
+          provider: "vimeo",
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return {
+    href: parsed.canonicalUrl,
+    thumbnailUrl: null,
+    provider: parsed.provider,
+  };
 }
 
 export function isYoutubeOrVimeoUrl(raw: string): boolean {
