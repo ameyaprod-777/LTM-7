@@ -42,7 +42,21 @@ export async function GET(
           : "public, max-age=86400",
       },
     });
-  } catch {
-    return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code?: string }).code)
+        : "";
+    if (code === "ENOENT") {
+      return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
+    }
+    console.error("[listing-photo GET]", listingId, filename, err);
+    return NextResponse.json(
+      {
+        error: "Image illisible",
+        detail: err instanceof Error ? err.message : "erreur",
+      },
+      { status: 422 }
+    );
   }
 }

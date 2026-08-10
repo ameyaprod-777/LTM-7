@@ -22,6 +22,7 @@
     "db:rename-admin-email": "tsx prisma/rename-admin-email.ts",
     "db:fix-media-urls": "tsx scripts/fix-media-urls.ts",
     "media:fix-images": "tsx scripts/fix-listing-images.ts",
+    "media:diagnose": "tsx scripts/diagnose-listing-photos.ts",
     "db:studio": "prisma studio",
     "deploy": "bash deploy/pm2-deploy.sh",
     "postinstall": "prisma generate"

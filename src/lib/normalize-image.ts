@@ -19,13 +19,19 @@ export function isHeicBuffer(buffer: Buffer): boolean {
     "hevx",
   ];
   if (heicBrands.includes(brand)) return true;
-  // Brands secondaires dans les 20 octets suivants
-  const more = buffer.toString("ascii", 8, Math.min(buffer.length, 32)).toLowerCase();
+  const more = buffer
+    .toString("ascii", 8, Math.min(buffer.length, 32))
+    .toLowerCase();
   return heicBrands.some((b) => more.includes(b));
 }
 
-function isBrowserImageMagic(buffer: Buffer): boolean {
-  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+export function isBrowserImageMagic(buffer: Buffer): boolean {
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
     return true;
   }
   if (
@@ -49,11 +55,24 @@ function isBrowserImageMagic(buffer: Buffer): boolean {
 
 async function heicToJpegBuffer(buffer: Buffer): Promise<Buffer> {
   const out = await convert({
-    buffer,
+    buffer: new Uint8Array(buffer),
     format: "JPEG",
     quality: 0.9,
   });
   return Buffer.from(out);
+}
+
+async function toJpegViaSharp(input: Buffer, maxEdge: number, quality: number) {
+  return sharp(input, { failOn: "none", unlimited: true })
+    .rotate()
+    .resize({
+      width: maxEdge,
+      height: maxEdge,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality, mozjpeg: true })
+    .toBuffer();
 }
 
 /**
@@ -67,45 +86,41 @@ export async function normalizeUploadImage(
   const maxEdge = opts?.maxEdge ?? MAX_EDGE;
   const quality = opts?.quality ?? JPEG_QUALITY;
 
-  let input = buffer;
+  const attempts: Buffer[] = [buffer];
+
   if (isHeicBuffer(buffer) || !isBrowserImageMagic(buffer)) {
+    // 1) sharp (si libvips HEIF dispo) 2) heic-convert (wasm)
     try {
-      if (isHeicBuffer(buffer)) {
-        input = await heicToJpegBuffer(buffer);
-      } else {
-        // Tentative HEIC même si marqueur ambigu (certains exports iOS)
-        try {
-          input = await heicToJpegBuffer(buffer);
-        } catch {
-          input = buffer;
-        }
-      }
+      const viaSharp = await toJpegViaSharp(buffer, maxEdge, quality);
+      return { buffer: viaSharp, mime: "image/jpeg", ext: ".jpg" };
+    } catch {
+      /* fall through */
+    }
+    try {
+      attempts.unshift(await heicToJpegBuffer(buffer));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "conversion impossible";
-      throw new Error(
-        `Image non lisible (${msg}). Réessayez en JPG depuis l’iPhone.`
-      );
+      if (!isBrowserImageMagic(buffer)) {
+        throw new Error(
+          `Image non lisible (${msg}). Réessayez en JPG depuis l’iPhone.`
+        );
+      }
     }
   }
 
-  try {
-    const jpeg = await sharp(input, { failOn: "none" })
-      .rotate()
-      .resize({
-        width: maxEdge,
-        height: maxEdge,
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality, mozjpeg: true })
-      .toBuffer();
-
-    return { buffer: jpeg, mime: "image/jpeg", ext: ".jpg" };
-  } catch {
-    throw new Error(
-      "Image non supportée. Sur iPhone, exportez en JPG ou laissez le site convertir le HEIC."
-    );
+  let lastError: unknown;
+  for (const input of attempts) {
+    try {
+      const jpeg = await toJpegViaSharp(input, maxEdge, quality);
+      return { buffer: jpeg, mime: "image/jpeg", ext: ".jpg" };
+    } catch (e) {
+      lastError = e;
+    }
   }
+
+  throw new Error(
+    `Image non supportée (${lastError instanceof Error ? lastError.message : "décodage"}). Exportez en JPG depuis l’iPhone.`
+  );
 }
 
 /**

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Upload, X } from "lucide-react";
+import { prepareImageForUpload } from "@/lib/client-image-prepare";
 
 type Props = {
   serviceId?: string;
@@ -22,27 +23,35 @@ export function ServicePhotoUpload({ serviceId, photos, onChange }: Props) {
 
     setUploading(true);
     setError(null);
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      const prepared = await prepareImageForUpload(file);
+      const formData = new FormData();
+      formData.append("file", prepared);
 
-    const res = await fetch(
-      serviceId
-        ? `/api/services/${serviceId}/photos`
-        : "/api/services/photos/upload",
-      {
-        method: "POST",
-        body: formData,
+      const res = await fetch(
+        serviceId
+          ? `/api/services/${serviceId}/photos`
+          : "/api/services/photos/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(
+          typeof json.error === "string" ? json.error : "Échec de l'upload"
+        );
+        return;
       }
-    );
-    const json = await res.json();
-    setUploading(false);
 
-    if (!res.ok) {
-      setError(typeof json.error === "string" ? json.error : "Échec de l'upload");
-      return;
+      onChange([...photos, json.url as string]);
+    } catch {
+      setError("Échec de l'upload");
+    } finally {
+      setUploading(false);
     }
-
-    onChange([...photos, json.url as string]);
   };
 
   return (
