@@ -69,7 +69,10 @@ const authMiddleware = withAuth(
     }
 
     if (path.startsWith("/verify-identity") && token?.verifiedIdentity) {
-      return NextResponse.redirect(new URL("/apply", req.url));
+      const applyUrl = new URL("/apply", req.url);
+      const invite = req.nextUrl.searchParams.get("invite");
+      if (invite) applyUrl.searchParams.set("invite", invite);
+      return NextResponse.redirect(applyUrl);
     }
 
     return NextResponse.next();

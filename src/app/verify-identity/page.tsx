@@ -112,6 +112,7 @@ export default async function VerifyIdentityPage({
           publishableKey={publishableKey}
           initialStatus={user?.stripeIdentityStatus ?? null}
           initialLastError={user?.stripeIdentityLastError ?? null}
+          invite={invite}
         />
       </div>
 

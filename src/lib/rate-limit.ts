@@ -18,6 +18,7 @@ export const RATE_LIMITS = {
   kycApply: { windowMs: 60 * 60 * 1000, max: 3 },
   dataExport: { windowMs: 60 * 60 * 1000, max: 3 },
   identitySession: { windowMs: 60 * 60 * 1000, max: 10 },
+  identityStatus: { windowMs: 60 * 1000, max: 40 },
 } as const;
 
 export type RateLimitBucket = keyof typeof RATE_LIMITS;
