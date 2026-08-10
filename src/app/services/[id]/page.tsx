@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants";
 import { formatCents } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
+import { toSameOriginMediaUrl } from "@/lib/upload-root";
 import { Button } from "@/components/ui/button";
 import { ServiceQuoteRequest } from "@/components/services/service-quote-request";
 import { ServiceQuotePaymentPanel } from "@/components/services/service-quote-payment-panel";
@@ -102,7 +103,13 @@ export default async function ServiceDetailPage({
                   key={photo.id}
                   className={`relative aspect-[4/3] overflow-hidden rounded-xl bg-anthracite-100 ${i === 0 ? "sm:col-span-2" : ""}`}
                 >
-                  <Image src={photo.url} alt="" fill className="object-cover" unoptimized />
+                  <Image
+                    src={toSameOriginMediaUrl(photo.url) ?? photo.url}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
                 </div>
               ))
             ) : (
