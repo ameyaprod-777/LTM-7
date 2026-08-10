@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notifyAdmins } from "@/lib/notifications";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, urgentForumEmail } from "@/lib/email";
 import { isUrgentNeed } from "@/lib/forum-query";
 import { formatDateTime } from "@/lib/utils";
 
@@ -48,23 +48,18 @@ export async function notifyUrgentNeed(post: {
     })),
   });
 
-  const siteUrl =
-    process.env.NEXTAUTH_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
-
   for (const m of members) {
     if (!m.email || m.email.endsWith("@louetonmatos.invalid")) continue;
     void sendEmail({
       to: m.email,
       subject: `[Urgent] ${post.title}`,
-      html: `
-        <h1>Besoin urgent sur LoueTonMatos</h1>
-        <p>Bonjour ${m.name ?? "Membre"},</p>
-        <p><strong>${author?.name ?? "Un membre"}</strong> a publié un besoin pour <strong>${when}</strong> :</p>
-        <p><em>${post.title}</em></p>
-        <p><a href="${siteUrl}/forum/${post.id}">Voir sur le fil Actu</a></p>
-      `,
+      html: urgentForumEmail(
+        m.name,
+        author?.name ?? "Un membre",
+        post.title,
+        when,
+        post.id
+      ),
     });
   }
 }

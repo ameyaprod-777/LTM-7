@@ -1,7 +1,7 @@
 import { subDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, reviewReminderEmail } from "@/lib/email";
 
 const REMINDER_AFTER_DAYS = 2;
 
@@ -25,11 +25,6 @@ export async function sendPendingReviewReminders() {
     },
     take: 100,
   });
-
-  const siteUrl =
-    process.env.NEXTAUTH_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
 
   let sent = 0;
 
@@ -56,12 +51,7 @@ export async function sendPendingReviewReminders() {
         void sendEmail({
           to: user.email,
           subject: `Rappel — laissez un avis sur ${booking.listing.title}`,
-          html: `
-            <h1>Bonjour ${user.name ?? "Membre"},</h1>
-            <p>Votre location « <strong>${booking.listing.title}</strong> » est terminée depuis quelques jours.</p>
-            <p>En tant que ${role}, votre avis aide la communauté LoueTonMatos.</p>
-            <p><a href="${siteUrl}/dashboard/bookings">Laisser un avis</a></p>
-          `,
+          html: reviewReminderEmail(user.name, booking.listing.title, role),
         });
       }
 

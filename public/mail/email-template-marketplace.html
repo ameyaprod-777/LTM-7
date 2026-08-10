@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>{{OBJET_EMAIL}}</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    html, body { margin: 0 !important; padding: 0 !important; height: 100% !important; width: 100% !important; }
+    * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt !important; mso-table-rspace: 0pt !important; border-collapse: collapse !important; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    a { text-decoration: none; }
+
+    @media screen and (max-width: 600px) {
+      .container { width: 100% !important; }
+      .px-32 { padding-left: 24px !important; padding-right: 24px !important; }
+      .stack { display: block !important; width: 100% !important; }
+      .btn a { display: block !important; }
+      .hero-title { font-size: 24px !important; line-height: 32px !important; }
+      .card-grid td { display: block !important; width: 100% !important; padding: 0 0 16px 0 !important; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body, .bg-page { background-color: #0f1115 !important; }
+      .bg-card { background-color: #1a1d24 !important; }
+      .text-title { color: #ffffff !important; }
+      .text-body { color: #c2c7d0 !important; }
+      .text-muted { color: #8a909c !important; }
+      .divider { border-color: #2a2e37 !important; }
+      .bg-soft { background-color: #22262f !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#eef1f6;" class="bg-page">
+
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#eef1f6;">
+    {{PREHEADER}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-page" style="background-color:#eef1f6;">
+    <tr>
+      <td align="center" style="padding: 24px 12px;">
+
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
+
+          <tr>
+            <td class="px-32" style="padding: 8px 32px 24px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left" style="font-family: Arial, Helvetica, sans-serif;">
+                    <a href="{{URL_SITE}}" style="font-family: Arial, Helvetica, sans-serif; font-size:22px; font-weight:bold; color:#2a5f9e; letter-spacing:-0.5px; text-decoration:none;">
+                      <img src="{{URL_LOGO}}" alt="{{NOM_PLATEFORME}}" height="36" style="height:36px; width:auto; vertical-align:middle; margin-right:8px;">
+                      {{NOM_PLATEFORME}}
+                    </a>
+                  </td>
+                  <td align="right" style="font-family: Arial, Helvetica, sans-serif; font-size:13px;">
+                    <a href="{{URL_EXPLORER}}" class="text-muted" style="color:#6b7280; font-family: Arial, Helvetica, sans-serif;">Explorer le catalogue</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-card" style="background-color:#ffffff; border-radius:16px; overflow:hidden;">
+
+                <tr>
+                  <td style="background:linear-gradient(135deg,#2a5f9e 0%,#3b6fae 100%); background-color:#2a5f9e; padding:0;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" class="px-32" style="padding: 44px 32px;">
+                          <div style="font-family: Arial, Helvetica, sans-serif; font-size:13px; font-weight:bold; color:#d6e4f5; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:12px;">
+                            {{SURTITRE}}
+                          </div>
+                          <div class="hero-title" style="font-family: Arial, Helvetica, sans-serif; font-size:30px; line-height:38px; font-weight:bold; color:#ffffff;">
+                            {{TITRE_PRINCIPAL}}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="px-32" style="padding: 36px 32px 8px 32px; font-family: Arial, Helvetica, sans-serif;">
+                    <p class="text-body" style="margin:0 0 16px 0; font-size:16px; line-height:26px; color:#3f4451;">
+                      Bonjour <strong>{{PRENOM}}</strong>,
+                    </p>
+                    <div class="text-body" style="margin:0 0 24px 0; font-size:16px; line-height:26px; color:#3f4451;">
+                      {{CORPS_MESSAGE}}
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- CTA_START -->
+                <tr>
+                  <td class="px-32" style="padding: 4px 32px 32px 32px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="btn">
+                      <tr>
+                        <td align="center" bgcolor="#2a5f9e" style="border-radius:10px; background-color:#2a5f9e;">
+                          <a href="{{URL_CTA}}" style="display:inline-block; font-family: Arial, Helvetica, sans-serif; font-size:16px; font-weight:bold; color:#ffffff; padding:15px 34px; border-radius:10px;">
+                            {{TEXTE_CTA}}
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- CTA_END -->
+
+                <tr>
+                  <td class="px-32" style="padding: 0 32px;">
+                    <hr class="divider" style="border:none; border-top:1px solid #e6e9ef; margin:0;">
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="px-32" style="padding: 28px 32px 8px 32px; font-family: Arial, Helvetica, sans-serif;">
+                    <div class="text-muted" style="font-size:13px; font-weight:bold; color:#8a909c; text-transform:uppercase; letter-spacing:1px; margin-bottom:16px;">
+                      Sur la plateforme
+                    </div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="px-32" style="padding: 0 32px 20px 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="card-grid">
+                      <tr>
+                        <td class="stack" width="50%" valign="top" style="padding-right:8px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-soft" style="background-color:#f4f6fb; border-radius:12px;">
+                            <tr>
+                              <td style="padding:0; background-color:#2a5f9e; border-radius:12px 12px 0 0; height:96px; text-align:center;">
+                                <a href="{{URL_ITEM_1}}" style="display:block; padding:28px 16px; font-family:Arial,Helvetica,sans-serif; font-size:28px; color:#ffffff; text-decoration:none;">🎬</a>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:14px 16px 16px 16px; font-family: Arial, Helvetica, sans-serif;">
+                                <div class="text-muted" style="font-size:11px; font-weight:bold; color:#2a5f9e; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">{{CATEGORIE_ITEM_1}}</div>
+                                <div class="text-title" style="font-size:15px; font-weight:bold; color:#1a1d24; line-height:20px; margin-bottom:6px;">{{TITRE_ITEM_1}}</div>
+                                <div class="text-body" style="font-size:14px; color:#3f4451;"><strong>{{PRIX_ITEM_1}}</strong></div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td class="stack" width="50%" valign="top" style="padding-left:8px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-soft" style="background-color:#f4f6fb; border-radius:12px;">
+                            <tr>
+                              <td style="padding:0; background-color:#3b6fae; border-radius:12px 12px 0 0; height:96px; text-align:center;">
+                                <a href="{{URL_ITEM_2}}" style="display:block; padding:28px 16px; font-family:Arial,Helvetica,sans-serif; font-size:28px; color:#ffffff; text-decoration:none;">🛠️</a>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding:14px 16px 16px 16px; font-family: Arial, Helvetica, sans-serif;">
+                                <div class="text-muted" style="font-size:11px; font-weight:bold; color:#2a5f9e; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">{{CATEGORIE_ITEM_2}}</div>
+                                <div class="text-title" style="font-size:15px; font-weight:bold; color:#1a1d24; line-height:20px; margin-bottom:6px;">{{TITRE_ITEM_2}}</div>
+                                <div class="text-body" style="font-size:14px; color:#3f4451;"><strong>{{PRIX_ITEM_2}}</strong></div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="px-32" style="padding: 12px 32px 36px 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="stack" width="33%" align="center" style="font-family: Arial, Helvetica, sans-serif; padding:8px;">
+                          <div style="font-size:22px;">🎬</div>
+                          <div class="text-body" style="font-size:13px; color:#3f4451; margin-top:6px;">Créateurs<br>vérifiés</div>
+                        </td>
+                        <td class="stack" width="33%" align="center" style="font-family: Arial, Helvetica, sans-serif; padding:8px;">
+                          <div style="font-size:22px;">🔒</div>
+                          <div class="text-body" style="font-size:13px; color:#3f4451; margin-top:6px;">Paiement<br>sécurisé</div>
+                        </td>
+                        <td class="stack" width="33%" align="center" style="font-family: Arial, Helvetica, sans-serif; padding:8px;">
+                          <div style="font-size:22px;">⚡</div>
+                          <div class="text-body" style="font-size:13px; color:#3f4451; margin-top:6px;">Communauté<br>pro</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="px-32" style="padding: 28px 32px; font-family: Arial, Helvetica, sans-serif;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom:16px;">
+                    <a href="{{URL_INSTAGRAM}}" style="display:inline-block; margin:0 8px; color:#6b7280; font-size:13px;">Instagram</a>
+                    <a href="{{URL_YOUTUBE}}" style="display:inline-block; margin:0 8px; color:#6b7280; font-size:13px;">YouTube</a>
+                    <a href="{{URL_LINKEDIN}}" style="display:inline-block; margin:0 8px; color:#6b7280; font-size:13px;">LinkedIn</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" class="text-muted" style="font-size:12px; line-height:20px; color:#8a909c;">
+                    {{NOM_PLATEFORME}} — Location de matériel audiovisuel entre créatifs<br>
+                    {{ADRESSE_SOCIETE}}<br><br>
+                    Vous recevez cet email car vous avez un compte sur {{NOM_PLATEFORME}}.<br>
+                    <a href="{{URL_PREFERENCES}}" class="text-muted" style="color:#8a909c; text-decoration:underline;">Gérer mes préférences</a>
+                    &nbsp;•&nbsp;
+                    <a href="{{URL_SUPPORT}}" class="text-muted" style="color:#8a909c; text-decoration:underline;">Support</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

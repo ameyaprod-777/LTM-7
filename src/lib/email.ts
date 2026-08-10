@@ -4,6 +4,12 @@ import {
   buildInvoiceNumber,
   type InvoiceData,
 } from "@/lib/invoice-pdf";
+import {
+  appUrl,
+  emailDetailsTable,
+  escapeHtml,
+  renderMarketplaceEmail,
+} from "@/lib/email-template";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -12,6 +18,8 @@ const resend = process.env.RESEND_API_KEY
 const FROM =
   process.env.EMAIL_FROM ?? "LoueTonMatos <support@louetonmatos.fr>";
 const REPLY_TO = process.env.EMAIL_REPLY_TO ?? "support@louetonmatos.fr";
+
+export { appUrl } from "@/lib/email-template";
 
 export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY?.trim());
@@ -72,48 +80,59 @@ export async function sendEmail({
 
     return { ok: true as const };
   } catch (err) {
-    // Resend peut throw (réseau, DNS, etc.) — on ne fait jamais planter
-    // une action métier (approbation, inscription…) pour un email.
     console.error("[email] throw", err);
     return { ok: false as const, error: err };
   }
 }
 
-function appUrl(path: string) {
-  const base =
-    process.env.NEXTAUTH_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}${path}`;
-}
-
 export function membershipApprovedEmail(name: string) {
-  return `
-    <h1>Bienvenue dans la communauté LoueTonMatos</h1>
-    <p>Bonjour ${name},</p>
-    <p>Votre demande d'adhésion a été <strong>approuvée</strong>. Vous pouvez dès maintenant louer et proposer du matériel.</p>
-    <p><a href="${appUrl("/dashboard")}">Accéder à mon tableau de bord</a></p>
-  `;
+  return renderMarketplaceEmail({
+    subject: "Bienvenue dans la communauté LoueTonMatos",
+    preheader: "Votre adhésion a été approuvée",
+    eyebrow: "Adhésion",
+    title: "Bienvenue dans la communauté",
+    recipientName: name,
+    bodyHtml: `<p style="margin:0 0 12px 0;">Votre demande d'adhésion a été <strong>approuvée</strong>. Vous pouvez dès maintenant louer et proposer du matériel.</p>`,
+    ctaLabel: "Accéder à mon tableau de bord",
+    ctaUrl: appUrl("/dashboard"),
+  });
 }
 
 export function membershipRejectedEmail(name: string, message?: string) {
-  return `
-    <h1>Mise à jour de votre demande</h1>
-    <p>Bonjour ${name},</p>
-    <p>Votre demande d'adhésion n'a pas été retenue pour le moment.</p>
-    ${message ? `<p><em>Message de l'équipe : ${message}</em></p>` : ""}
-    <p>Vous pouvez nous contacter pour plus d'informations.</p>
-  `;
+  return renderMarketplaceEmail({
+    subject: "Mise à jour de votre demande d'adhésion",
+    preheader: "Informations sur votre candidature",
+    eyebrow: "Adhésion",
+    title: "Mise à jour de votre demande",
+    recipientName: name,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Votre demande d'adhésion n'a pas été retenue pour le moment.</p>
+      ${
+        message
+          ? `<p style="margin:0 0 12px 0;"><em>Message de l'équipe : ${escapeHtml(message)}</em></p>`
+          : ""
+      }
+      <p style="margin:0;">Vous pouvez nous contacter pour plus d'informations.</p>
+    `,
+    ctaLabel: "Contacter le support",
+    ctaUrl: appUrl("/dashboard/support"),
+  });
 }
 
 export function membershipIncompleteEmail(name: string, message: string) {
-  return `
-    <h1>Informations complémentaires requises</h1>
-    <p>Bonjour ${name},</p>
-    <p>Votre candidature nécessite des informations supplémentaires :</p>
-    <p><em>${message}</em></p>
-    <p><a href="${appUrl("/apply")}">Compléter ma candidature</a></p>
-  `;
+  return renderMarketplaceEmail({
+    subject: "Informations complémentaires requises",
+    preheader: "Complétez votre candidature LoueTonMatos",
+    eyebrow: "Adhésion",
+    title: "Informations complémentaires requises",
+    recipientName: name,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Votre candidature nécessite des informations supplémentaires :</p>
+      <p style="margin:0;"><em>${escapeHtml(message)}</em></p>
+    `,
+    ctaLabel: "Compléter ma candidature",
+    ctaUrl: appUrl("/apply"),
+  });
 }
 
 export function adminNewApplicationEmail(
@@ -121,29 +140,48 @@ export function adminNewApplicationEmail(
   applicantEmail: string,
   invitationNote?: string | null
 ) {
-  return `
-    <h1>Nouvelle demande d'adhésion</h1>
-    <p><strong>${applicantName}</strong> (${applicantEmail}) vient de soumettre une candidature.</p>
-    ${
-      invitationNote
-        ? `<p><strong>Invitation :</strong> ${invitationNote}</p>`
-        : ""
-    }
-    <p><a href="${appUrl("/admin/membership")}">Examiner la demande</a></p>
-  `;
+  return renderMarketplaceEmail({
+    subject: invitationNote
+      ? `[Invitation] Candidature — ${applicantName}`
+      : `Nouvelle candidature — ${applicantName}`,
+    preheader: `${applicantName} a soumis une candidature`,
+    eyebrow: "Admin",
+    title: "Nouvelle demande d'adhésion",
+    recipientName: "Admin",
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;"><strong>${escapeHtml(applicantName)}</strong> (${escapeHtml(applicantEmail)}) vient de soumettre une candidature.</p>
+      ${
+        invitationNote
+          ? `<p style="margin:0 0 12px 0;"><strong>Invitation :</strong> ${escapeHtml(invitationNote)}</p>`
+          : ""
+      }
+    `,
+    ctaLabel: "Examiner la demande",
+    ctaUrl: appUrl("/admin/membership"),
+  });
 }
 
-export function passwordResetEmail(name: string | null, token: string, email: string) {
+export function passwordResetEmail(
+  name: string | null,
+  token: string,
+  email: string
+) {
   const link = appUrl(
     `/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
   );
-  return `
-    <h1>Réinitialisation du mot de passe</h1>
-    <p>Bonjour${name ? ` ${name}` : ""},</p>
-    <p>Vous avez demandé à réinitialiser votre mot de passe LoueTonMatos.</p>
-    <p><a href="${link}">Choisir un nouveau mot de passe</a></p>
-    <p>Ce lien expire dans 1 heure. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
-  `;
+  return renderMarketplaceEmail({
+    subject: "Réinitialisation de votre mot de passe",
+    preheader: "Choisissez un nouveau mot de passe LoueTonMatos",
+    eyebrow: "Sécurité",
+    title: "Réinitialisation du mot de passe",
+    recipientName: name,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Vous avez demandé à réinitialiser votre mot de passe LoueTonMatos.</p>
+      <p style="margin:0;">Ce lien expire dans <strong>1 heure</strong>. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+    `,
+    ctaLabel: "Choisir un nouveau mot de passe",
+    ctaUrl: link,
+  });
 }
 
 export function newMessageEmail(
@@ -152,14 +190,20 @@ export function newMessageEmail(
   preview: string,
   conversationId: string
 ) {
-  const safe = preview.slice(0, 300).replace(/</g, "&lt;");
-  return `
-    <h1>Nouveau message</h1>
-    <p>Bonjour ${recipientName},</p>
-    <p><strong>${senderName}</strong> vous a envoyé un message :</p>
-    <blockquote style="border-left:3px solid #ccc;padding-left:12px;color:#444">${safe}</blockquote>
-    <p><a href="${appUrl(`/dashboard/messages/${conversationId}`)}">Répondre sur LoueTonMatos</a></p>
-  `;
+  const safe = escapeHtml(preview.slice(0, 300));
+  return renderMarketplaceEmail({
+    subject: `Nouveau message de ${senderName}`,
+    preheader: preview.slice(0, 80),
+    eyebrow: "Messagerie",
+    title: "Nouveau message",
+    recipientName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;"><strong>${escapeHtml(senderName)}</strong> vous a envoyé un message :</p>
+      <blockquote style="margin:0;padding:12px 16px;border-left:3px solid #2a5f9e;background:#f4f6fb;color:#3f4451;">${safe}</blockquote>
+    `,
+    ctaLabel: "Répondre sur LoueTonMatos",
+    ctaUrl: appUrl(`/dashboard/messages/${conversationId}`),
+  });
 }
 
 export function ticketStaffReplyEmail(
@@ -168,14 +212,20 @@ export function ticketStaffReplyEmail(
   preview: string,
   ticketId: string
 ) {
-  const safe = preview.slice(0, 500).replace(/</g, "&lt;");
-  return `
-    <h1>Réponse de l'équipe support</h1>
-    <p>Bonjour${recipientName ? ` ${recipientName}` : ""},</p>
-    <p>Nous avons répondu à votre ticket <strong>${subject.replace(/</g, "&lt;")}</strong> :</p>
-    <blockquote style="border-left:3px solid #ccc;padding-left:12px;color:#444">${safe}</blockquote>
-    <p><a href="${appUrl(`/dashboard/support/${ticketId}`)}">Voir la conversation</a></p>
-  `;
+  const safe = escapeHtml(preview.slice(0, 500));
+  return renderMarketplaceEmail({
+    subject: `Réponse support — ${subject}`,
+    preheader: "L'équipe a répondu à votre ticket",
+    eyebrow: "Support",
+    title: "Réponse de l'équipe support",
+    recipientName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Nous avons répondu à votre ticket <strong>${escapeHtml(subject)}</strong> :</p>
+      <blockquote style="margin:0;padding:12px 16px;border-left:3px solid #2a5f9e;background:#f4f6fb;color:#3f4451;">${safe}</blockquote>
+    `,
+    ctaLabel: "Voir la conversation",
+    ctaUrl: appUrl(`/dashboard/support/${ticketId}`),
+  });
 }
 
 export function notificationEmail(
@@ -184,28 +234,23 @@ export function notificationEmail(
   body?: string,
   link?: string
 ) {
-  const safeTitle = title.replace(/</g, "&lt;");
-  const safeBody = body?.replace(/</g, "&lt;") ?? "";
-  const cta = link ? appUrl(link.startsWith("/") ? link : `/${link}`) : appUrl("/dashboard");
+  const cta = link
+    ? appUrl(link.startsWith("/") ? link : `/${link}`)
+    : appUrl("/dashboard");
 
-  return `
-    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-      <p style="margin:0 0 16px">Bonjour${recipientName ? ` ${recipientName.replace(/</g, "&lt;")}` : ""},</p>
-      <h1 style="font-size:20px;margin:0 0 12px">${safeTitle}</h1>
-      ${safeBody ? `<p style="margin:0 0 16px;color:#444">${safeBody}</p>` : ""}
-      <p style="margin:24px 0 0">
-        <a href="${cta}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Voir sur LoueTonMatos
-        </a>
-      </p>
-      <p style="margin:24px 0 0;font-size:12px;color:#888">
-        Vous recevez cet email car une activité a eu lieu sur votre compte LoueTonMatos.
-      </p>
-    </div>
-  `;
+  return renderMarketplaceEmail({
+    subject: title,
+    preheader: body?.slice(0, 100) ?? title,
+    eyebrow: "Notification",
+    title,
+    recipientName,
+    bodyHtml: body
+      ? `<p style="margin:0;">${escapeHtml(body)}</p>`
+      : `<p style="margin:0;">Une activité a eu lieu sur votre compte LoueTonMatos.</p>`,
+    ctaLabel: "Voir sur LoueTonMatos",
+    ctaUrl: cta,
+  });
 }
-
-// ─── Booking emails ───────────────────────────────────────────────────────────
 
 export function bookingRequestEmail(
   listerName: string,
@@ -215,25 +260,25 @@ export function bookingRequestEmail(
   endDate: string,
   totalEuros: string
 ) {
-  return `
-    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-      <h1 style="font-size:20px;margin:0 0 12px">Nouvelle demande de location</h1>
-      <p>Bonjour ${listerName.replace(/</g, "&lt;")},</p>
-      <p><strong>${renterName.replace(/</g, "&lt;")}</strong> souhaite louer votre matériel :</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0">
-        <tr><td style="padding:6px 0;color:#555">Annonce</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Du</td><td style="padding:6px 0">${startDate}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Au</td><td style="padding:6px 0">${endDate}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Total locataire</td><td style="padding:6px 0;font-weight:600">${totalEuros} €</td></tr>
-      </table>
-      <p style="margin:24px 0 0">
-        <a href="${appUrl("/dashboard/bookings?role=lister")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Approuver ou refuser
-        </a>
-      </p>
-      <p style="margin:16px 0 0;font-size:13px;color:#888">La demande expire si vous ne répondez pas sous 48 h.</p>
-    </div>
-  `;
+  return renderMarketplaceEmail({
+    subject: `Nouvelle demande — ${listingTitle}`,
+    preheader: `${renterName} souhaite louer votre matériel`,
+    eyebrow: "Location",
+    title: "Nouvelle demande de location",
+    recipientName: listerName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;"><strong>${escapeHtml(renterName)}</strong> souhaite louer votre matériel :</p>
+      ${emailDetailsTable([
+        { label: "Annonce", value: listingTitle },
+        { label: "Du", value: startDate },
+        { label: "Au", value: endDate },
+        { label: "Total locataire", value: `${totalEuros} €` },
+      ])}
+      <p style="margin:0;font-size:14px;color:#6b7280;">La demande expire si vous ne répondez pas sous 48 h.</p>
+    `,
+    ctaLabel: "Approuver ou refuser",
+    ctaUrl: appUrl("/dashboard/bookings?role=lister"),
+  });
 }
 
 export function bookingApprovedEmail(
@@ -243,23 +288,23 @@ export function bookingApprovedEmail(
   endDate: string,
   totalEuros: string
 ) {
-  return `
-    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-      <h1 style="font-size:20px;margin:0 0 12px">Votre demande a été approuvée ✓</h1>
-      <p>Bonjour ${renterName.replace(/</g, "&lt;")},</p>
-      <p>Le loueur a accepté votre demande pour <strong>${listingTitle.replace(/</g, "&lt;")}</strong>.</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0">
-        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Montant à payer</td><td style="padding:6px 0;font-weight:600">${totalEuros} €</td></tr>
-      </table>
-      <p style="margin:24px 0 0">
-        <a href="${appUrl("/dashboard/bookings")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Procéder au paiement
-        </a>
-      </p>
-      <p style="margin:16px 0 0;font-size:13px;color:#888">La réservation ne sera effective qu'après paiement.</p>
-    </div>
-  `;
+  return renderMarketplaceEmail({
+    subject: `Demande approuvée — ${listingTitle}`,
+    preheader: "Procédez au paiement pour confirmer",
+    eyebrow: "Location",
+    title: "Votre demande a été approuvée",
+    recipientName: renterName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Le loueur a accepté votre demande pour <strong>${escapeHtml(listingTitle)}</strong>.</p>
+      ${emailDetailsTable([
+        { label: "Dates", value: `${startDate} → ${endDate}` },
+        { label: "Montant à payer", value: `${totalEuros} €` },
+      ])}
+      <p style="margin:0;font-size:14px;color:#6b7280;">La réservation ne sera effective qu'après paiement.</p>
+    `,
+    ctaLabel: "Procéder au paiement",
+    ctaUrl: appUrl("/dashboard/bookings"),
+  });
 }
 
 export function bookingConfirmedRenterEmail(
@@ -269,23 +314,23 @@ export function bookingConfirmedRenterEmail(
   endDate: string,
   listerName: string
 ) {
-  return `
-    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-      <h1 style="font-size:20px;margin:0 0 12px">Réservation confirmée 🎉</h1>
-      <p>Bonjour ${renterName.replace(/</g, "&lt;")},</p>
-      <p>Votre paiement a bien été reçu. La location est confirmée !</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0">
-        <tr><td style="padding:6px 0;color:#555">Matériel</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Loueur</td><td style="padding:6px 0">${listerName.replace(/</g, "&lt;")}</td></tr>
-      </table>
-      <p style="margin:24px 0 0">
-        <a href="${appUrl("/dashboard/bookings")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Voir ma réservation
-        </a>
-      </p>
-    </div>
-  `;
+  return renderMarketplaceEmail({
+    subject: `Réservation confirmée — ${listingTitle}`,
+    preheader: "Votre paiement a bien été reçu",
+    eyebrow: "Location",
+    title: "Réservation confirmée",
+    recipientName: renterName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Votre paiement a bien été reçu. La location est confirmée !</p>
+      ${emailDetailsTable([
+        { label: "Matériel", value: listingTitle },
+        { label: "Dates", value: `${startDate} → ${endDate}` },
+        { label: "Loueur", value: listerName },
+      ])}
+    `,
+    ctaLabel: "Voir ma réservation",
+    ctaUrl: appUrl("/dashboard/bookings"),
+  });
 }
 
 export function bookingConfirmedListerEmail(
@@ -296,23 +341,23 @@ export function bookingConfirmedListerEmail(
   renterName: string,
   netEuros: string
 ) {
-  return `
-    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-      <h1 style="font-size:20px;margin:0 0 12px">Paiement reçu — location confirmée ✓</h1>
-      <p>Bonjour ${listerName.replace(/</g, "&lt;")},</p>
-      <p>Le paiement de <strong>${renterName.replace(/</g, "&lt;")}</strong> a été encaissé. La location de votre matériel est confirmée.</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0">
-        <tr><td style="padding:6px 0;color:#555">Matériel</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Votre revenu net</td><td style="padding:6px 0;font-weight:600">${netEuros} €</td></tr>
-      </table>
-      <p style="margin:24px 0 0">
-        <a href="${appUrl("/dashboard/bookings?role=lister")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Voir mes locations
-        </a>
-      </p>
-    </div>
-  `;
+  return renderMarketplaceEmail({
+    subject: `Paiement reçu — ${listingTitle}`,
+    preheader: "La location de votre matériel est confirmée",
+    eyebrow: "Location",
+    title: "Paiement reçu — location confirmée",
+    recipientName: listerName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Le paiement de <strong>${escapeHtml(renterName)}</strong> a été encaissé. La location de votre matériel est confirmée.</p>
+      ${emailDetailsTable([
+        { label: "Matériel", value: listingTitle },
+        { label: "Dates", value: `${startDate} → ${endDate}` },
+        { label: "Votre revenu net", value: `${netEuros} €` },
+      ])}
+    `,
+    ctaLabel: "Voir mes locations",
+    ctaUrl: appUrl("/dashboard/bookings?role=lister"),
+  });
 }
 
 export function bookingCancelledEmail(
@@ -324,33 +369,39 @@ export function bookingCancelledEmail(
   cancelledByRenter: boolean
 ) {
   const who = cancelledByRenter ? "Le locataire" : "Le loueur";
-  return `
-    <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-      <h1 style="font-size:20px;margin:0 0 12px">Réservation annulée</h1>
-      <p>Bonjour ${recipientName.replace(/</g, "&lt;")},</p>
-      <p>${who} a annulé la réservation suivante :</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0">
-        <tr><td style="padding:6px 0;color:#555">Matériel</td><td style="padding:6px 0;font-weight:600">${listingTitle.replace(/</g, "&lt;")}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Dates</td><td style="padding:6px 0">${startDate} → ${endDate}</td></tr>
-        <tr><td style="padding:6px 0;color:#555">Remboursement</td><td style="padding:6px 0">${refundLabel.replace(/</g, "&lt;")}</td></tr>
-      </table>
-      <p style="margin:24px 0 0">
-        <a href="${appUrl("/dashboard/bookings")}" style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Mes réservations
-        </a>
-      </p>
-    </div>
-  `;
+  return renderMarketplaceEmail({
+    subject: `Réservation annulée — ${listingTitle}`,
+    preheader: "Une réservation a été annulée",
+    eyebrow: "Location",
+    title: "Réservation annulée",
+    recipientName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">${who} a annulé la réservation suivante :</p>
+      ${emailDetailsTable([
+        { label: "Matériel", value: listingTitle },
+        { label: "Dates", value: `${startDate} → ${endDate}` },
+        { label: "Remboursement", value: refundLabel },
+      ])}
+    `,
+    ctaLabel: "Mes réservations",
+    ctaUrl: appUrl("/dashboard/bookings"),
+  });
 }
 
 export function testEmail(recipientName: string | null) {
-  return `
-    <h1>Test d'envoi LoueTonMatos</h1>
-    <p>Bonjour${recipientName ? ` ${recipientName}` : ""},</p>
-    <p>Si vous lisez ce message, la configuration <strong>Resend</strong> fonctionne correctement.</p>
-    <p>Les notifications de la plateforme (devis, réservations, messages, etc.) pourront vous être envoyées par email.</p>
-    <p><a href="${appUrl("/dashboard")}">Retour au tableau de bord</a></p>
-  `;
+  return renderMarketplaceEmail({
+    subject: "Test d'envoi LoueTonMatos",
+    preheader: "La configuration email fonctionne",
+    eyebrow: "Test",
+    title: "Test d'envoi réussi",
+    recipientName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Si vous lisez ce message, la configuration <strong>Resend</strong> et le template LoueTonMatos fonctionnent correctement.</p>
+      <p style="margin:0;">Les notifications (devis, réservations, messages, etc.) pourront vous être envoyées par email.</p>
+    `,
+    ctaLabel: "Retour au tableau de bord",
+    ctaUrl: appUrl("/dashboard"),
+  });
 }
 
 export function emailVerificationEmail(
@@ -362,13 +413,62 @@ export function emailVerificationEmail(
   const params = new URLSearchParams({ token, email });
   if (invite) params.set("invite", invite);
   const link = appUrl(`/verify-email?${params.toString()}`);
-  return `
-    <h1>Confirmez votre adresse email</h1>
-    <p>Bonjour${name ? ` ${name}` : ""},</p>
-    <p>Merci de rejoindre LoueTonMatos. Cliquez sur le lien ci-dessous pour activer votre compte :</p>
-    <p><a href="${link}">Vérifier mon email</a></p>
-    <p>Ce lien expire dans 24 heures.</p>
-  `;
+
+  return renderMarketplaceEmail({
+    subject: "Confirmez votre adresse email",
+    preheader: "Activez votre compte LoueTonMatos",
+    eyebrow: "Inscription",
+    title: "Confirmez votre adresse email",
+    recipientName: name,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Merci de rejoindre LoueTonMatos. Cliquez sur le bouton ci-dessous pour activer votre compte.</p>
+      <p style="margin:0;font-size:14px;color:#6b7280;">Ce lien expire dans <strong>24 heures</strong>.</p>
+    `,
+    ctaLabel: "Vérifier mon email",
+    ctaUrl: link,
+  });
+}
+
+export function urgentForumEmail(
+  recipientName: string | null,
+  authorName: string,
+  postTitle: string,
+  when: string,
+  postId: string
+) {
+  return renderMarketplaceEmail({
+    subject: `[Urgent] ${postTitle}`,
+    preheader: `Besoin pour ${when}`,
+    eyebrow: "Actu",
+    title: "Besoin urgent sur LoueTonMatos",
+    recipientName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;"><strong>${escapeHtml(authorName)}</strong> a publié un besoin pour <strong>${escapeHtml(when)}</strong> :</p>
+      <p style="margin:0;"><em>${escapeHtml(postTitle)}</em></p>
+    `,
+    ctaLabel: "Voir sur le fil Actu",
+    ctaUrl: appUrl(`/forum/${postId}`),
+  });
+}
+
+export function reviewReminderEmail(
+  recipientName: string | null,
+  listingTitle: string,
+  roleLabel: string
+) {
+  return renderMarketplaceEmail({
+    subject: `Rappel — laissez un avis sur ${listingTitle}`,
+    preheader: "Votre avis aide la communauté",
+    eyebrow: "Avis",
+    title: "Votre avis compte",
+    recipientName,
+    bodyHtml: `
+      <p style="margin:0 0 12px 0;">Votre location « <strong>${escapeHtml(listingTitle)}</strong> » est terminée depuis quelques jours.</p>
+      <p style="margin:0;">En tant que ${escapeHtml(roleLabel)}, votre avis aide la communauté LoueTonMatos.</p>
+    `,
+    ctaLabel: "Laisser un avis",
+    ctaUrl: appUrl("/dashboard/bookings"),
+  });
 }
 
 // ─── Invoice sender ───────────────────────────────────────────────────────────
@@ -402,22 +502,21 @@ export async function sendBookingInvoice(invoice: InvoiceData) {
     await sendEmail({
       to: renter.email,
       subject: `Votre facture LoueTonMatos — ${booking.listingTitle}`,
-      html: `
-        <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-          <h1 style="font-size:20px;margin:0 0 12px">Votre facture est disponible</h1>
-          <p>Bonjour ${renter.name.replace(/</g, "&lt;")},</p>
-          <p>La location de <strong>${booking.listingTitle.replace(/</g, "&lt;")}</strong>
-             du ${startStr} au ${endStr} est confirmée.</p>
-          <p>Retrouvez votre facture (N° ${number}) en pièce jointe.
-             <strong>Total réglé : ${totalStr} €</strong>.</p>
-          <p style="margin:24px 0 0">
-            <a href="${appUrl("/dashboard/bookings")}"
-               style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-              Voir ma réservation
-            </a>
-          </p>
-        </div>
-      `,
+      html: renderMarketplaceEmail({
+        subject: `Votre facture — ${booking.listingTitle}`,
+        preheader: `Facture N° ${number} en pièce jointe`,
+        eyebrow: "Facture",
+        title: "Votre facture est disponible",
+        recipientName: renter.name,
+        bodyHtml: `
+          <p style="margin:0 0 12px 0;">La location de <strong>${escapeHtml(booking.listingTitle)}</strong>
+             du ${escapeHtml(startStr)} au ${escapeHtml(endStr)} est confirmée.</p>
+          <p style="margin:0;">Retrouvez votre facture (N° ${escapeHtml(number)}) en pièce jointe.
+             <strong>Total réglé : ${escapeHtml(totalStr)} €</strong>.</p>
+        `,
+        ctaLabel: "Voir ma réservation",
+        ctaUrl: appUrl("/dashboard/bookings"),
+      }),
       attachments: [attachment],
     });
   }
@@ -426,23 +525,22 @@ export async function sendBookingInvoice(invoice: InvoiceData) {
     await sendEmail({
       to: lister.email,
       subject: `Paiement reçu — ${booking.listingTitle}`,
-      html: `
-        <div style="font-family:system-ui,sans-serif;max-width:560px;color:#1a1a1a">
-          <h1 style="font-size:20px;margin:0 0 12px">Paiement reçu ✓</h1>
-          <p>Bonjour ${lister.name.replace(/</g, "&lt;")},</p>
-          <p>Le paiement pour <strong>${booking.listingTitle.replace(/</g, "&lt;")}</strong>
-             (${startStr} → ${endStr}) a bien été encaissé.</p>
-          <p>Votre revenu net : <strong>${netStr} €</strong>
+      html: renderMarketplaceEmail({
+        subject: `Paiement reçu — ${booking.listingTitle}`,
+        preheader: `Revenu net ${netStr} €`,
+        eyebrow: "Paiement",
+        title: "Paiement reçu",
+        recipientName: lister.name,
+        bodyHtml: `
+          <p style="margin:0 0 12px 0;">Le paiement pour <strong>${escapeHtml(booking.listingTitle)}</strong>
+             (${escapeHtml(startStr)} → ${escapeHtml(endStr)}) a bien été encaissé.</p>
+          <p style="margin:0 0 12px 0;">Votre revenu net : <strong>${escapeHtml(netStr)} €</strong>
              (versé à la clôture de la location).</p>
-          <p>La facture locataire (N° ${number}) est en pièce jointe pour vos archives.</p>
-          <p style="margin:24px 0 0">
-            <a href="${appUrl("/dashboard/bookings?role=lister")}"
-               style="display:inline-block;background:#c45c26;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-              Voir mes locations
-            </a>
-          </p>
-        </div>
-      `,
+          <p style="margin:0;">La facture locataire (N° ${escapeHtml(number)}) est en pièce jointe pour vos archives.</p>
+        `,
+        ctaLabel: "Voir mes locations",
+        ctaUrl: appUrl("/dashboard/bookings?role=lister"),
+      }),
       attachments: [attachment],
     });
   }
