@@ -81,26 +81,28 @@ export function AvailabilityCalendar({
   const pad = startPad === 0 ? 6 : startPad - 1;
 
   return (
-    <div className="rounded-xl border border-anthracite-100 bg-white p-4">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="overflow-x-auto rounded-xl border border-anthracite-100 bg-white p-3 sm:p-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="font-semibold text-anthracite">
           {editable ? "Calendrier de disponibilité" : "Disponibilité"}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
           <button
             type="button"
             onClick={() => setMonth(subMonths(month, 1))}
-            className="rounded-lg p-1 hover:bg-anthracite-50"
+            className="rounded-lg p-2 hover:bg-anthracite-50"
+            aria-label="Mois précédent"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="min-w-[120px] text-center text-sm font-medium capitalize">
+          <span className="min-w-0 flex-1 text-center text-sm font-medium capitalize sm:min-w-[140px] sm:flex-none">
             {format(month, "MMMM yyyy", { locale: fr })}
           </span>
           <button
             type="button"
             onClick={() => setMonth(addMonths(month, 1))}
-            className="rounded-lg p-1 hover:bg-anthracite-50"
+            className="rounded-lg p-2 hover:bg-anthracite-50"
+            aria-label="Mois suivant"
           >
             <ChevronRight className="h-4 w-4" />
           </button>

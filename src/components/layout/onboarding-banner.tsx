@@ -33,15 +33,15 @@ export function OnboardingBanner({ status }: { status: OnboardingStatus }) {
   const label = STEP_LABELS[status.step];
 
   return (
-    <div className="border-b border-accent/30 bg-accent-muted/50 px-4 py-3 text-sm text-anthracite">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-2">
-          <Icon className="h-4 w-4 shrink-0 text-accent" />
-          {label}
+    <div className="border-b border-accent/30 bg-accent-muted/50 px-3 py-3 text-sm text-anthracite sm:px-4">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <span className="inline-flex min-w-0 items-start gap-2 sm:items-center">
+          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent sm:mt-0" />
+          <span className="leading-snug">{label}</span>
         </span>
         <Link
           href={status.href}
-          className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+          className="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-accent px-3 py-2.5 text-xs font-semibold text-white hover:bg-accent-hover sm:w-auto sm:py-1.5"
         >
           {status.ctaLabel}
           <ArrowRight className="h-3 w-3" />

@@ -37,7 +37,7 @@ export function CookieBanner() {
       role="dialog"
       aria-labelledby="cookie-banner-title"
       aria-describedby="cookie-banner-desc"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-anthracite-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:p-6"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-anthracite-200 bg-white/95 p-4 shadow-lg backdrop-blur safe-pb sm:p-6"
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">

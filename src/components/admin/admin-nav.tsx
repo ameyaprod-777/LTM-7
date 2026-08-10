@@ -56,7 +56,10 @@ export function AdminNav({ role }: { role: UserRole }) {
   const visible = links.filter((l) => !l.superAdminOnly || superAdmin);
 
   return (
-    <nav className="flex flex-wrap gap-2 border-b border-anthracite-100 pb-4 lg:flex-col lg:border-b-0 lg:pb-0">
+    <nav
+      className="-mx-1 flex gap-2 overflow-x-auto overscroll-x-contain border-b border-anthracite-100 pb-3 scrollbar-none lg:mx-0 lg:flex-col lg:overflow-visible lg:border-b-0 lg:pb-0"
+      aria-label="Navigation admin"
+    >
       {visible.map((link) => {
         const active = link.exact
           ? pathname === link.href
@@ -66,7 +69,7 @@ export function AdminNav({ role }: { role: UserRole }) {
             key={link.href}
             href={link.href}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors lg:w-full lg:whitespace-normal",
               active
                 ? "bg-accent text-white"
                 : "text-anthracite-600 hover:bg-anthracite-50"

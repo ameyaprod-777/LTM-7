@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { DashboardNav } from "@/components/dashboard/nav";
+import { DashboardNav, DASHBOARD_NAV_LINKS } from "@/components/dashboard/nav";
+import { DashboardMobileTabs } from "@/components/dashboard/mobile-tabs";
 
 export default async function DashboardLayout({
   children,
@@ -12,12 +13,14 @@ export default async function DashboardLayout({
   if (!session?.user) redirect("/login?callbackUrl=/dashboard");
 
   return (
-    <div className="mx-auto flex max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
-      <aside className="hidden w-56 shrink-0 md:block">
-        <DashboardNav />
-      </aside>
-      <div className="min-w-0 flex-1">{children}</div>
+    <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
+      <DashboardMobileTabs links={DASHBOARD_NAV_LINKS} />
+      <div className="flex gap-8">
+        <aside className="hidden w-56 shrink-0 md:block">
+          <DashboardNav />
+        </aside>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
     </div>
   );
 }
-

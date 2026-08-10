@@ -10,12 +10,19 @@
 body {
   color: var(--foreground);
   background: var(--background);
+  overflow-x: clip;
 }
 
 @layer base {
   :focus-visible {
     outline: 2px solid #2a5f9e;
     outline-offset: 2px;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
   }
 
   .sr-only {
@@ -45,5 +52,22 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-pt {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }

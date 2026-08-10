@@ -13,7 +13,7 @@ export function Footer() {
               Louez entre créatifs, en confiance.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
             <div>
               <h4 className="mb-3 text-sm font-semibold text-white">
                 Plateforme

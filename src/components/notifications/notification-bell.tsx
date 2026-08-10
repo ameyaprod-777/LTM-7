@@ -59,16 +59,16 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-anthracite-100 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] rounded-xl border border-anthracite-100 bg-white shadow-xl sm:w-80">
+            <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
               <span className="text-sm font-semibold">Notifications</span>
               {unread > 0 && (
-                <button type="button" onClick={markAllRead} className="text-xs text-accent">
+                <button type="button" onClick={markAllRead} className="shrink-0 text-xs text-accent">
                   Tout marquer lu
                 </button>
               )}
             </div>
-            <ul className="max-h-80 overflow-y-auto">
+            <ul className="max-h-[min(20rem,50dvh)] overflow-y-auto overscroll-contain">
               {items.length === 0 ? (
                 <li className="px-4 py-6 text-center text-sm text-anthracite-400">
                   Aucune notification
@@ -81,8 +81,12 @@ export function NotificationBell() {
                       onClick={() => setOpen(false)}
                       className={`block px-4 py-3 text-sm hover:bg-anthracite-50 ${!n.read ? "bg-accent-muted/30" : ""}`}
                     >
-                      <p className="font-medium text-anthracite">{n.title}</p>
-                      {n.body && <p className="text-xs text-anthracite-500">{n.body}</p>}
+                      <p className="font-medium text-anthracite break-words">{n.title}</p>
+                      {n.body && (
+                        <p className="mt-0.5 line-clamp-2 break-words text-xs text-anthracite-500">
+                          {n.body}
+                        </p>
+                      )}
                     </Link>
                   </li>
                 ))

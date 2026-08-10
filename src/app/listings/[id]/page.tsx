@@ -79,10 +79,10 @@ export default async function ListingDetailPage({
   const isOwner = session?.user?.id === listing.ownerId;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
       <ListingViewTracker listingId={listing.id} />
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
+        <div className="order-2 min-w-0 lg:order-1 lg:col-span-2">
           <div className="grid gap-2 sm:grid-cols-2">
             {listing.photos.length > 0 ? (
               listing.photos.map((photo, i) => (
@@ -100,7 +100,9 @@ export default async function ListingDetailPage({
             )}
           </div>
 
-          <h1 className="mt-6 text-3xl font-bold text-anthracite">{listing.title}</h1>
+          <h1 className="mt-5 text-2xl font-bold text-anthracite sm:mt-6 sm:text-3xl">
+            {listing.title}
+          </h1>
           <p className="mt-2 text-anthracite-500">
             {CATEGORY_LABELS[listing.category]} · {listing.city}
             {listing.neighborhood && ` · ${listing.neighborhood}`}
@@ -171,8 +173,8 @@ export default async function ListingDetailPage({
           )}
         </div>
 
-        <div>
-          <div className="sticky top-24 space-y-4">
+        <div className="order-1 lg:order-2">
+          <div className="space-y-4 lg:sticky lg:top-24">
             <div className="rounded-2xl border border-anthracite-100 bg-anthracite-50 p-4">
               <p className="text-2xl font-bold text-anthracite">
                 {formatCents(listing.pricePerDay)}

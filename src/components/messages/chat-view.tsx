@@ -172,28 +172,28 @@ export function ChatView({
   };
 
   return (
-    <div className="flex h-[560px] flex-col rounded-xl border border-anthracite-100">
-      <div className="flex flex-wrap gap-2 border-b border-anthracite-50 p-2">
+    <div className="flex h-[min(560px,70dvh)] min-h-[320px] flex-col rounded-xl border border-anthracite-100">
+      <div className="flex gap-2 overflow-x-auto overscroll-x-contain border-b border-anthracite-50 p-2 scrollbar-none">
         {MESSAGE_REPLY_TEMPLATES.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setBody(t.body)}
-            className="rounded-full bg-anthracite-50 px-2.5 py-1 text-xs text-anthracite-600 hover:bg-accent-muted hover:text-accent"
+            className="shrink-0 rounded-full bg-anthracite-50 px-2.5 py-1.5 text-xs text-anthracite-600 hover:bg-accent-muted hover:text-accent"
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4">
         {messages.map((m) => {
           const mine = m.sender.id === currentUserId;
           const deleted = !!m.deletedAt || m.body === "[Message supprimé]";
           return (
             <div
               key={m.id}
-              className={`group max-w-[85%] ${mine ? "ml-auto" : ""}`}
+              className={`group max-w-[min(85%,24rem)] ${mine ? "ml-auto" : ""}`}
             >
               <div
                 className={`rounded-lg px-3 py-2 text-sm ${
@@ -205,7 +205,9 @@ export function ChatView({
                 }`}
               >
                 <p className="text-xs opacity-70">{m.sender.name}</p>
-                {m.body && <p className="whitespace-pre-wrap">{m.body}</p>}
+                {m.body && (
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                )}
                 {m.attachmentUrl && (
                   <div className="mt-2">
                     {m.attachmentMime?.startsWith("image/") ? (
@@ -213,7 +215,7 @@ export function ChatView({
                       <img
                         src={m.attachmentUrl}
                         alt={m.attachmentName ?? ""}
-                        className="max-h-48 rounded-lg"
+                        className="max-h-48 max-w-full rounded-lg object-contain"
                       />
                     ) : (
                       <a
@@ -232,14 +234,14 @@ export function ChatView({
                   {mine && m.readAt && " · Lu"}
                 </p>
               </div>
-              <div className="mt-1 flex gap-2 opacity-0 transition group-hover:opacity-100">
+              <div className="mt-1 flex gap-3 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
                 {mine && !deleted && (
                   <button
                     type="button"
                     onClick={() => void deleteMessage(m.id)}
-                    className="flex items-center gap-1 text-[10px] text-anthracite-400 hover:text-red-600"
+                    className="flex min-h-8 items-center gap-1 text-[11px] text-anthracite-400 hover:text-red-600"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-3.5 w-3.5" />
                     Supprimer
                   </button>
                 )}
@@ -247,9 +249,9 @@ export function ChatView({
                   <button
                     type="button"
                     onClick={() => void reportMessage(m.id)}
-                    className="flex items-center gap-1 text-[10px] text-anthracite-400"
+                    className="flex min-h-8 items-center gap-1 text-[11px] text-anthracite-400"
                   >
-                    <Flag className="h-3 w-3" />
+                    <Flag className="h-3.5 w-3.5" />
                     Signaler
                   </button>
                 )}
@@ -273,8 +275,8 @@ export function ChatView({
         </p>
       )}
 
-      <div className="flex gap-2 border-t p-3">
-        <label className="flex cursor-pointer items-center rounded-lg border border-anthracite-200 px-2 hover:bg-anthracite-50">
+      <div className="flex items-end gap-2 border-t p-2 sm:p-3 safe-pb">
+        <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-anthracite-200 hover:bg-anthracite-50">
           <Paperclip className="h-4 w-4 text-anthracite-500" />
           <input
             type="file"
@@ -292,10 +294,15 @@ export function ChatView({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-          className="flex-1 rounded-lg border px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-lg border px-3 py-2.5 text-sm"
           placeholder="Votre message…"
         />
-        <Button onClick={send} loading={loading || uploading}>
+        <Button
+          onClick={send}
+          loading={loading || uploading}
+          className="shrink-0"
+          size="sm"
+        >
           Envoyer
         </Button>
       </div>

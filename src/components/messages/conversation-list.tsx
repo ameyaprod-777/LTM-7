@@ -84,7 +84,7 @@ export function ConversationList({ conversations, totalUnread }: Props) {
               className="flex items-center gap-3 rounded-xl border border-anthracite-100 p-4 pr-12 hover:bg-anthracite-50"
             >
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-anthracite">
+                <p className="truncate font-medium text-anthracite">
                   {c.otherName ?? "Conversation"}
                   {c.contextLabel && (
                     <span className="font-normal text-anthracite-500">
@@ -110,7 +110,7 @@ export function ConversationList({ conversations, totalUnread }: Props) {
               title="Supprimer de ma liste"
               disabled={deletingId === c.id}
               onClick={(e) => void deleteConversation(c.id, e)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-anthracite-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 disabled:opacity-50"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2.5 text-anthracite-400 opacity-100 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />
             </button>
