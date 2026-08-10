@@ -8,6 +8,7 @@ import { LISTING_STATUS_LABELS } from "@/lib/constants";
 import type { ListingStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/money";
+import { toSameOriginMediaUrl } from "@/lib/upload-root";
 
 type ListingRow = {
   id: string;
@@ -55,7 +56,13 @@ export function AdminListingsTable({ listings }: { listings: ListingRow[] }) {
                 <div className="flex items-center gap-3">
                   {l.photos[0] ? (
                     <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
-                      <Image src={l.photos[0].url} alt="" fill className="object-cover" unoptimized />
+                      <Image
+                        src={toSameOriginMediaUrl(l.photos[0].url) ?? l.photos[0].url}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
                   ) : (
                     <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-anthracite-100 text-xs">

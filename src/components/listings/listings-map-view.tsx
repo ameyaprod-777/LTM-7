@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { MapPin, Navigation, Search, Loader2 } from "lucide-react";
 import { haversineKm, formatDistance } from "@/lib/distance";
 import { formatCents } from "@/lib/money";
+import { toSameOriginMediaUrl } from "@/lib/upload-root";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -167,7 +168,12 @@ export function ListingsMapView() {
                       className="h-14 w-14 shrink-0 rounded-lg bg-anthracite-100 bg-cover bg-center"
                       style={
                         listing.photo
-                          ? { backgroundImage: `url(${listing.photo})` }
+                          ? {
+                              backgroundImage: `url(${
+                                toSameOriginMediaUrl(listing.photo) ??
+                                listing.photo
+                              })`,
+                            }
                           : undefined
                       }
                     />

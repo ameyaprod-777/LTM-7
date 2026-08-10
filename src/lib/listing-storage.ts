@@ -1,12 +1,11 @@
-import { mkdir, writeFile, unlink } from "fs/promises";
+import { mkdir, writeFile, unlink, rename, copyFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import {
   validateFileMagic,
   type AllowedImageMime,
 } from "@/lib/file-magic";
-
-const UPLOAD_ROOT = path.join(process.cwd(), "uploads");
+import { getUploadRoot } from "@/lib/upload-root";
 
 const ALLOWED_MIME: Record<AllowedImageMime, string> = {
   "image/jpeg": ".jpg",
@@ -21,6 +20,10 @@ const PHOTO_ALLOWED: AllowedImageMime[] = [
 ];
 
 export const LISTING_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
+
+function uploadRoot() {
+  return getUploadRoot();
+}
 
 export function validateListingPhotoFile(file: File): string | null {
   if (!(file.type in ALLOWED_MIME)) {
@@ -46,7 +49,8 @@ export async function saveListingPhotoFile(listingId: string, file: File) {
   const ext = ALLOWED_MIME[file.type as AllowedImageMime];
   const filename = `${randomUUID()}${ext}`;
   const relativeDir = path.join("listings", listingId);
-  const absoluteDir = path.join(UPLOAD_ROOT, relativeDir);
+  const root = uploadRoot();
+  const absoluteDir = path.join(root, relativeDir);
   await mkdir(absoluteDir, { recursive: true });
 
   await writeFile(path.join(absoluteDir, filename), buffer);
@@ -58,9 +62,10 @@ export async function saveListingPhotoFile(listingId: string, file: File) {
 }
 
 export function getListingPhotoAbsolutePath(storagePath: string): string {
+  const root = uploadRoot();
   const normalized = path.normalize(storagePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  const full = path.join(UPLOAD_ROOT, normalized);
-  if (!full.startsWith(UPLOAD_ROOT)) {
+  const full = path.join(root, normalized);
+  if (!full.startsWith(root)) {
     throw new Error("Chemin invalide");
   }
   return full;
@@ -74,24 +79,35 @@ export async function deleteListingPhotoFile(storagePath: string) {
   }
 }
 
+/** URL relative same-origin (pas de localhost figé en prod). */
 export function listingPhotoPublicUrl(listingId: string, filename: string) {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXTAUTH_URL ??
-    "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}/api/listings/photos/${listingId}/${filename}`;
+  return `/api/listings/photos/${listingId}/${filename}`;
 }
 
 export function parseListingPhotoUrl(url: string) {
-  const pending = url.match(
+  const pathOnly = url.includes("/api/")
+    ? url.slice(url.indexOf("/api/"))
+    : url;
+  const pending = pathOnly.match(
     /\/api\/listings\/photos\/pending\/([^/]+)\/([^/?#]+)$/
   );
   if (pending) {
-    return { kind: "pending" as const, userId: pending[1], filename: pending[2] };
+    return {
+      kind: "pending" as const,
+      userId: pending[1]!,
+      filename: pending[2]!,
+    };
   }
-  const match = url.match(/\/api\/listings\/photos\/([^/]+)\/([^/?#]+)$/);
+  const match = pathOnly.match(
+    /\/api\/listings\/photos\/([^/]+)\/([^/?#]+)$/
+  );
   if (!match) return null;
-  return { kind: "listing" as const, listingId: match[1], filename: match[2] };
+  if (match[1] === "pending") return null;
+  return {
+    kind: "listing" as const,
+    listingId: match[1]!,
+    filename: match[2]!,
+  };
 }
 
 export async function savePendingListingPhoto(userId: string, file: File) {
@@ -105,7 +121,8 @@ export async function savePendingListingPhoto(userId: string, file: File) {
   const ext = ALLOWED_MIME[file.type as AllowedImageMime];
   const filename = `${randomUUID()}${ext}`;
   const relativeDir = path.join("listings", "pending", userId);
-  const absoluteDir = path.join(UPLOAD_ROOT, relativeDir);
+  const root = uploadRoot();
+  const absoluteDir = path.join(root, relativeDir);
   await mkdir(absoluteDir, { recursive: true });
 
   await writeFile(path.join(absoluteDir, filename), buffer);
@@ -124,16 +141,79 @@ export function getPendingListingPhotoAbsolutePath(
   if (!/^[\w.-]+\.(jpg|jpeg|png|webp)$/i.test(filename)) {
     throw new Error("Fichier invalide");
   }
-  const full = path.join(UPLOAD_ROOT, "listings", "pending", userId, filename);
-  const root = path.join(UPLOAD_ROOT, "listings", "pending");
-  if (!full.startsWith(root)) throw new Error("Chemin invalide");
+  const root = uploadRoot();
+  const full = path.join(root, "listings", "pending", userId, filename);
+  const pendingRoot = path.join(root, "listings", "pending");
+  if (!full.startsWith(pendingRoot)) throw new Error("Chemin invalide");
   return full;
 }
 
 export function pendingListingPhotoPublicUrl(userId: string, filename: string) {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXTAUTH_URL ??
-    "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}/api/listings/photos/pending/${userId}/${filename}`;
+  return `/api/listings/photos/pending/${userId}/${filename}`;
+}
+
+/**
+ * Déplace une photo pending vers le dossier de l'annonce et retourne l'URL finale.
+ * Si l'URL pointe déjà vers l'annonce, la normalise en chemin relatif.
+ */
+export async function finalizeListingPhotoUrl(
+  listingId: string,
+  ownerId: string,
+  rawUrl: string
+): Promise<string> {
+  const parsed = parseListingPhotoUrl(rawUrl);
+
+  if (!parsed) {
+    // URL externe (ex. Unsplash) — garder relative si possible
+    if (rawUrl.startsWith("/")) return rawUrl;
+    try {
+      const u = new URL(rawUrl);
+      if (u.pathname.startsWith("/api/")) return u.pathname;
+    } catch {
+      /* ignore */
+    }
+    return rawUrl;
+  }
+
+  if (parsed.kind === "listing") {
+    return listingPhotoPublicUrl(parsed.listingId, parsed.filename);
+  }
+
+  // pending → move into listing folder
+  if (parsed.userId !== ownerId) {
+    throw new Error("Photo pending non autorisée");
+  }
+
+  const from = getPendingListingPhotoAbsolutePath(
+    parsed.userId,
+    parsed.filename
+  );
+  const destDir = path.join(uploadRoot(), "listings", listingId);
+  await mkdir(destDir, { recursive: true });
+  const dest = path.join(destDir, parsed.filename);
+
+  try {
+    await rename(from, dest);
+  } catch {
+    await copyFile(from, dest);
+    try {
+      await unlink(from);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return listingPhotoPublicUrl(listingId, parsed.filename);
+}
+
+export async function finalizeListingPhotoUrls(
+  listingId: string,
+  ownerId: string,
+  urls: string[]
+): Promise<string[]> {
+  const out: string[] = [];
+  for (const url of urls) {
+    out.push(await finalizeListingPhotoUrl(listingId, ownerId, url));
+  }
+  return out;
 }

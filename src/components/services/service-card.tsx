@@ -6,6 +6,7 @@ import {
   SERVICE_RATE_LABELS,
 } from "@/lib/constants";
 import { formatCents } from "@/lib/money";
+import { toSameOriginMediaUrl } from "@/lib/upload-root";
 import type { ServiceCategory, ServiceRateType } from "@prisma/client";
 
 export type ServiceCardData = {
@@ -28,7 +29,7 @@ export function ServiceCard({
   service: ServiceCardData;
   variant?: Variant;
 }) {
-  const photo = service.photos[0]?.url;
+  const photo = toSameOriginMediaUrl(service.photos[0]?.url);
   const categoryLabel =
     SERVICE_CATEGORY_LABELS[service.category as ServiceCategory] ??
     service.category;

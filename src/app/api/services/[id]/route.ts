@@ -55,6 +55,13 @@ export async function PATCH(
 
   const data = parsed.data;
 
+  const { finalizeServicePhotoUrls } = await import("@/lib/service-storage");
+  const finalized = await finalizeServicePhotoUrls(
+    params.id,
+    existing.ownerId,
+    data.photoUrls
+  );
+
   await prisma.$transaction([
     prisma.servicePhoto.deleteMany({ where: { serviceId: params.id } }),
     prisma.service.update({
@@ -70,7 +77,7 @@ export async function PATCH(
         experienceYears: data.experienceYears ?? null,
         portfolioUrl: data.portfolioUrl || null,
         photos: {
-          create: data.photoUrls.map((url, i) => ({ url, order: i })),
+          create: finalized.map((url, i) => ({ url, order: i })),
         },
       },
     }),

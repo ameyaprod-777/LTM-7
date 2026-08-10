@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Lock } from "lucide-react";
 import { CATEGORY_LABELS } from "@/lib/constants";
 import { formatCents } from "@/lib/money";
+import { toSameOriginMediaUrl } from "@/lib/upload-root";
 import type { ListingCategory } from "@prisma/client";
 
 export type ListingCardData = {
@@ -23,7 +24,7 @@ export function ListingCard({
   listing: ListingCardData;
   variant?: Variant;
 }) {
-  const photo = listing.photos[0]?.url;
+  const photo = toSameOriginMediaUrl(listing.photos[0]?.url);
   const categoryLabel =
     CATEGORY_LABELS[listing.category as ListingCategory] ?? listing.category;
 

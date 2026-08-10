@@ -91,19 +91,36 @@ export async function POST(req: Request) {
         ownerId: auth.session.user.id,
         ...payload,
         status: publish ? "ACTIVE" : "DRAFT",
-        photos: {
-          create: photoUrls.map((url, i) => ({ url, order: i })),
-        },
       },
       include: { photos: true, tags: { include: { tag: true } } },
     });
+
+    if (photoUrls.length > 0) {
+      const { finalizeListingPhotoUrls } = await import("@/lib/listing-storage");
+      const finalized = await finalizeListingPhotoUrls(
+        created.id,
+        auth.session.user.id,
+        photoUrls
+      );
+      await tx.listingPhoto.createMany({
+        data: finalized.map((url, i) => ({
+          listingId: created.id,
+          url,
+          order: i,
+        })),
+      });
+    }
 
     await syncListingTags(
       tx,
       created.id,
       "tagNames" in data && data.tagNames ? data.tagNames : []
     );
-    return created;
+
+    return tx.listing.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { photos: true, tags: { include: { tag: true } } },
+    });
   });
 
   return NextResponse.json(listing, { status: 201 });

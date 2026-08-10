@@ -71,11 +71,24 @@ export async function POST(req: Request) {
       experienceYears: data.experienceYears ?? null,
       portfolioUrl: data.portfolioUrl || null,
       status: "ACTIVE",
-      photos: {
-        create: data.photoUrls.map((url, i) => ({ url, order: i })),
-      },
     },
   });
+
+  if (data.photoUrls.length > 0) {
+    const { finalizeServicePhotoUrls } = await import("@/lib/service-storage");
+    const finalized = await finalizeServicePhotoUrls(
+      service.id,
+      auth.session.user.id,
+      data.photoUrls
+    );
+    await prisma.servicePhoto.createMany({
+      data: finalized.map((url, i) => ({
+        serviceId: service.id,
+        url,
+        order: i,
+      })),
+    });
+  }
 
   return NextResponse.json({ id: service.id });
 }

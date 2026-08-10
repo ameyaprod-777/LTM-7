@@ -80,9 +80,15 @@ export async function PATCH(
 
   const updated = await prisma.$transaction(async (tx) => {
     if (data.photoUrls) {
+      const { finalizeListingPhotoUrls } = await import("@/lib/listing-storage");
+      const finalized = await finalizeListingPhotoUrls(
+        params.id,
+        listing.ownerId,
+        data.photoUrls
+      );
       await tx.listingPhoto.deleteMany({ where: { listingId: params.id } });
       await tx.listingPhoto.createMany({
-        data: data.photoUrls.map((url, order) => ({
+        data: finalized.map((url, order) => ({
           listingId: params.id,
           url,
           order,

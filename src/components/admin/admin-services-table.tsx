@@ -7,6 +7,7 @@ import Link from "next/link";
 import { LISTING_STATUS_LABELS } from "@/lib/constants";
 import type { ListingStatus } from "@prisma/client";
 import { Button } from "@/components/ui/button";
+import { toSameOriginMediaUrl } from "@/lib/upload-root";
 type ServiceRow = {
   id: string;
   title: string;
@@ -53,7 +54,15 @@ export function AdminServicesTable({ services }: { services: ServiceRow[] }) {
                 <div className="flex items-center gap-3">
                   {s.photos[0] ? (
                     <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
-                      <Image src={s.photos[0].url} alt="" fill className="object-cover" unoptimized />
+                      <Image
+                        src={
+                          toSameOriginMediaUrl(s.photos[0].url) ?? s.photos[0].url
+                        }
+                        alt=""
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
                   ) : (
                     <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-anthracite-100 text-xs">

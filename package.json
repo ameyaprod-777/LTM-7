@@ -20,6 +20,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset:admin": "tsx prisma/reset-to-admin.ts",
     "db:rename-admin-email": "tsx prisma/rename-admin-email.ts",
+    "db:fix-media-urls": "tsx scripts/fix-media-urls.ts",
     "db:studio": "prisma studio",
     "deploy": "bash deploy/pm2-deploy.sh",
     "postinstall": "prisma generate"
