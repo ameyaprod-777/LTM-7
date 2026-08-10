@@ -31,7 +31,7 @@ export default async function ApplyPage({
       projects: {
         orderBy: { createdAt: "desc" },
         take: 3,
-        select: { title: true, description: true },
+        select: { title: true, description: true, videoUrl: true },
       },
     },
   });
