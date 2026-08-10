@@ -25,9 +25,10 @@ export function RegisterForm({
   const [loading, setLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
 
+  // Email Google déjà vérifié → étape identité (pas /apply direct)
   const googleCallbackUrl = inviteToken
-    ? `/apply?invite=${encodeURIComponent(inviteToken)}`
-    : "/apply";
+    ? `/verify-identity?invite=${encodeURIComponent(inviteToken)}`
+    : "/verify-identity";
 
   const {
     register,
@@ -38,6 +39,22 @@ export function RegisterForm({
     resolver: zodResolver(registerSchema),
     defaultValues: { acceptTerms: false },
   });
+
+  const onAcceptTerms = (v: boolean) => {
+    setAcceptTerms(v);
+    setValue("acceptTerms", v, { shouldValidate: true });
+    if (v) setError(null);
+  };
+
+  const onGoogleClick = () => {
+    if (!acceptTerms) {
+      setError(
+        "Cochez d’abord l’acceptation des conditions pour créer un compte avec Google."
+      );
+      return;
+    }
+    setError(null);
+  };
 
   const onSubmit = async (data: RegisterInput) => {
     setLoading(true);
@@ -96,6 +113,41 @@ export function RegisterForm({
         </div>
       )}
 
+      {/* Consentement commun (email + Google) — avant les deux parcours */}
+      <RegisterLegalConsent
+        checked={acceptTerms}
+        onChange={onAcceptTerms}
+        error={errors.acceptTerms?.message as string | undefined}
+      />
+
+      {googleEnabled && (
+        <div className="space-y-3">
+          <GoogleSignInButton
+            callbackUrl={googleCallbackUrl}
+            blocked={!acceptTerms}
+            onBeforeSignIn={onGoogleClick}
+            label="Créer un compte avec Google"
+          />
+          {!acceptTerms && (
+            <p className="text-center text-xs text-anthracite-400">
+              Acceptez les conditions ci-dessus pour activer Google.
+            </p>
+          )}        </div>
+      )}
+
+      {googleEnabled && (
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-anthracite-200" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-anthracite-400">
+              ou par email
+            </span>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <Label htmlFor="email">Email</Label>
@@ -127,39 +179,10 @@ export function RegisterForm({
             {...register("confirmPassword")}
           />
         </div>
-        <RegisterLegalConsent
-          checked={acceptTerms}
-          onChange={(v) => {
-            setAcceptTerms(v);
-            setValue("acceptTerms", v, { shouldValidate: true });
-          }}
-          error={
-            errors.acceptTerms?.message as string | undefined
-          }
-        />
         <Button type="submit" className="w-full" loading={loading}>
           Créer mon compte
         </Button>
       </form>
-
-      {googleEnabled && (
-        <>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-anthracite-200" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-anthracite-400">ou</span>
-            </div>
-          </div>
-
-          <GoogleSignInButton
-            callbackUrl={googleCallbackUrl}
-            disabled={!acceptTerms}
-            disabledHint="Acceptez les conditions ci-dessus pour continuer avec Google."
-          />
-        </>
-      )}
 
       <p className="text-center text-sm text-anthracite-500">
         Déjà inscrit ?{" "}

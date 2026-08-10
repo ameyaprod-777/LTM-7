@@ -119,16 +119,17 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
-    newUser: "/apply",
+    // Nouvel utilisateur Google → identité (email déjà vérifié par Google)
+    newUser: "/verify-identity",
     error: "/login",
   },
   providers,
   callbacks: {
-    async jwt({ token, user, trigger, session, account }) {
+    async jwt({ token, user, trigger, session, account, profile }) {
       if (user) {
-        token.id = user.id;
-        token.role = user.role;
-        token.status = user.status;
+        token.id = user.id ?? token.id;
+        if (user.role) token.role = user.role;
+        if (user.status) token.status = user.status;
         token.verifiedIdentity = user.verifiedIdentity ?? false;
         token.emailVerified = user.emailVerified ?? null;
       }
@@ -140,7 +141,34 @@ export const authOptions: NextAuthOptions = {
           session.user.verifiedIdentity ?? token.verifiedIdentity;
       }
 
-      // OAuth (Google) : le profil renvoyé n'a pas toujours role/status → sync DB
+      // Nouveau compte Google : parfois seul l’email est fiable au 1er tick
+      if (
+        !token.id &&
+        account?.provider === "google" &&
+        (user?.email || profile?.email)
+      ) {
+        const email = (user?.email || profile?.email || "").toLowerCase();
+        if (email) {
+          const byEmail = await prisma.user.findUnique({
+            where: { email },
+            select: {
+              id: true,
+              role: true,
+              status: true,
+              verifiedIdentity: true,
+              emailVerified: true,
+            },
+          });
+          if (byEmail) {
+            token.id = byEmail.id;
+            token.role = byEmail.role;
+            token.status = byEmail.status;
+            token.verifiedIdentity = byEmail.verifiedIdentity;
+            token.emailVerified = byEmail.emailVerified;
+          }
+        }
+      }
+
       const needsDbSync =
         !!token.id &&
         (trigger === "update" ||
@@ -163,9 +191,8 @@ export const authOptions: NextAuthOptions = {
           token.status = dbUser.status;
           token.verifiedIdentity = dbUser.verifiedIdentity;
           token.emailVerified = dbUser.emailVerified;
-        } else {
-          return {} as typeof token;
         }
+        // Ne pas invalider le JWT si la sync échoue (course createUser)
       }
 
       return token;
@@ -214,20 +241,25 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async createUser({ user }) {
-      if (user.email) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            email: user.email.toLowerCase(),
-            ...(!user.emailVerified ? { emailVerified: new Date() } : {}),
-          },
+      try {
+        if (user.email) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              email: user.email.toLowerCase(),
+              emailVerified: user.emailVerified ?? new Date(),
+            },
+          });
+        }
+        await prisma.platformSettings.upsert({
+          where: { id: "default" },
+          create: { id: "default" },
+          update: {},
         });
+      } catch (err) {
+        // Ne doit jamais faire échouer l’inscription Google
+        console.error("[auth] createUser event:", err);
       }
-      await prisma.platformSettings.upsert({
-        where: { id: "default" },
-        create: { id: "default" },
-        update: {},
-      });
     },
     async linkAccount({ user, account }) {
       if (account.provider === "google") {
