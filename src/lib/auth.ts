@@ -39,76 +39,92 @@ declare module "next-auth/jwt" {
   }
 }
 
+/** true si GOOGLE_CLIENT_ID + SECRET sont définis (sinon le bouton OAuth est masqué). */
+export function isGoogleAuthConfigured() {
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim()
+  );
+}
+
+const providers: NextAuthOptions["providers"] = [
+  CredentialsProvider({
+    name: "credentials",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Mot de passe", type: "password" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials?.password) {
+        return null;
+      }
+
+      const email = credentials.email.toLowerCase();
+      const rl = enforceRateLimitKey("login", email);
+      if (!rl.ok) {
+        throw new Error(rl.message);
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user?.passwordHash) {
+        return null;
+      }
+
+      if (user.status === "BANNED") {
+        throw new Error("Compte suspendu. Contactez le support.");
+      }
+
+      if (user.status === "SUSPENDED") {
+        throw new Error("Compte temporairement suspendu. Contactez le support.");
+      }
+
+      const valid = await bcrypt.compare(
+        credentials.password,
+        user.passwordHash
+      );
+
+      if (!valid) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        role: user.role,
+        status: user.status,
+        verifiedIdentity: user.verifiedIdentity,
+        emailVerified: user.emailVerified,
+      };
+    },
+  }),
+];
+
+if (isGoogleAuthConfigured()) {
+  providers.unshift(
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
+    })
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
     newUser: "/apply",
+    error: "/login",
   },
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      allowDangerousEmailAccountLinking: true,
-    }),
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Mot de passe", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-
-        const email = credentials.email.toLowerCase();
-        const rl = enforceRateLimitKey("login", email);
-        if (!rl.ok) {
-          throw new Error(rl.message);
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
-
-        if (!user?.passwordHash) {
-          return null;
-        }
-
-        if (user.status === "BANNED") {
-          throw new Error("Compte suspendu. Contactez le support.");
-        }
-
-        if (user.status === "SUSPENDED") {
-          throw new Error("Compte temporairement suspendu. Contactez le support.");
-        }
-
-        const valid = await bcrypt.compare(
-          credentials.password,
-          user.passwordHash
-        );
-
-        if (!valid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-          status: user.status,
-          verifiedIdentity: user.verifiedIdentity,
-          emailVerified: user.emailVerified,
-        };
-      },
-    }),
-  ],
+  providers,
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session, account }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -120,13 +136,19 @@ export const authOptions: NextAuthOptions = {
       if (trigger === "update" && session?.user) {
         token.role = session.user.role;
         token.status = session.user.status;
-        token.verifiedIdentity = session.user.verifiedIdentity ?? token.verifiedIdentity;
+        token.verifiedIdentity =
+          session.user.verifiedIdentity ?? token.verifiedIdentity;
       }
 
-      if (
-        token.id &&
-        (trigger === "update" || !token.role || token.verifiedIdentity === undefined)
-      ) {
+      // OAuth (Google) : le profil renvoyé n'a pas toujours role/status → sync DB
+      const needsDbSync =
+        !!token.id &&
+        (trigger === "update" ||
+          account?.provider === "google" ||
+          !token.role ||
+          token.verifiedIdentity === undefined);
+
+      if (needsDbSync) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
           select: {
@@ -142,8 +164,6 @@ export const authOptions: NextAuthOptions = {
           token.verifiedIdentity = dbUser.verifiedIdentity;
           token.emailVerified = dbUser.emailVerified;
         } else {
-          // L'utilisateur n'existe plus en base (ex. reset DB). On invalide
-          // le token pour forcer une déconnexion propre côté client.
           return {} as typeof token;
         }
       }
@@ -162,11 +182,16 @@ export const authOptions: NextAuthOptions = {
     },
     async signIn({ user, account }) {
       if (account?.provider === "google") {
+        if (!user.email) return false;
+
         const existing = await prisma.user.findUnique({
-          where: { email: user.email! },
+          where: { email: user.email.toLowerCase() },
         });
-        if (existing?.status === "BANNED" || existing?.status === "SUSPENDED") {
-          return false;
+        if (existing?.status === "BANNED") {
+          return "/login?error=banned";
+        }
+        if (existing?.status === "SUSPENDED") {
+          return "/login?error=suspended";
         }
         if (existing && !existing.emailVerified) {
           await prisma.user.update({
@@ -179,12 +204,25 @@ export const authOptions: NextAuthOptions = {
     },
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      if (new URL(url).origin === baseUrl) return url;
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch {
+        // ignore
+      }
       return baseUrl;
     },
   },
   events: {
-    async createUser() {
+    async createUser({ user }) {
+      if (user.email) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            email: user.email.toLowerCase(),
+            ...(!user.emailVerified ? { emailVerified: new Date() } : {}),
+          },
+        });
+      }
       await prisma.platformSettings.upsert({
         where: { id: "default" },
         create: { id: "default" },

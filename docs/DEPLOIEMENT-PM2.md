@@ -94,6 +94,25 @@ npx prisma migrate status
 
 ---
 
+## Connexion Google (OAuth)
+
+Sans `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, le bouton Google est **masqué**.
+
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → créer un projet (ou en choisir un)
+2. **Écran de consentement OAuth** → External → renseigner app + email support
+3. **Credentials** → Create credentials → **OAuth client ID** → type **Web application**
+4. Authorized JavaScript origins :
+   - `https://louetonmatos.fr`
+   - `http://localhost:3000` (dev)
+5. Authorized redirect URIs :
+   - `https://louetonmatos.fr/api/auth/callback/google`
+   - `http://localhost:3000/api/auth/callback/google`
+6. Copier Client ID + Secret dans `.env.production` (et `.env` en local)
+7. Vérifier `NEXTAUTH_URL=https://louetonmatos.fr` (exactement le domaine public)
+8. `git pull` / rebuild + `pm2 restart louetonmatos`
+
+---
+
 ## Messagerie (prod)
 
 La messagerie **fonctionne sans Pusher** (rafraîchissement automatique toutes les ~3 s).

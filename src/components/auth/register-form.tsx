@@ -11,12 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RegisterLegalConsent } from "@/components/legal/legal-consent-checkbox";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
-export function RegisterForm({ inviteToken }: { inviteToken?: string }) {
+export function RegisterForm({
+  inviteToken,
+  googleEnabled = false,
+}: {
+  inviteToken?: string;
+  googleEnabled?: boolean;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
+
+  const googleCallbackUrl = inviteToken
+    ? `/apply?invite=${encodeURIComponent(inviteToken)}`
+    : "/apply";
 
   const {
     register,
@@ -131,23 +142,24 @@ export function RegisterForm({ inviteToken }: { inviteToken?: string }) {
         </Button>
       </form>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-anthracite-200" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-anthracite-400">ou</span>
-        </div>
-      </div>
+      {googleEnabled && (
+        <>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-anthracite-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-anthracite-400">ou</span>
+            </div>
+          </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={() => signIn("google", { callbackUrl: "/apply" })}
-      >
-        Continuer avec Google
-      </Button>
+          <GoogleSignInButton
+            callbackUrl={googleCallbackUrl}
+            disabled={!acceptTerms}
+            disabledHint="Acceptez les conditions ci-dessus pour continuer avec Google."
+          />
+        </>
+      )}
 
       <p className="text-center text-sm text-anthracite-500">
         Déjà inscrit ?{" "}

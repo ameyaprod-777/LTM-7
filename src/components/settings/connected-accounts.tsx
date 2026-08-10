@@ -9,7 +9,11 @@ type AccountsData = {
   hasPassword: boolean;
 };
 
-export function ConnectedAccounts() {
+export function ConnectedAccounts({
+  googleEnabled = false,
+}: {
+  googleEnabled?: boolean;
+}) {
   const [data, setData] = useState<AccountsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -63,7 +67,7 @@ export function ConnectedAccounts() {
           >
             Déconnecter
           </Button>
-        ) : (
+        ) : googleEnabled ? (
           <Button
             type="button"
             variant="outline"
@@ -72,6 +76,8 @@ export function ConnectedAccounts() {
           >
             Connecter
           </Button>
+        ) : (
+          <p className="text-xs text-anthracite-400">Google non configuré</p>
         )}
       </div>
       {message && <p className="text-sm text-anthracite-600">{message}</p>}

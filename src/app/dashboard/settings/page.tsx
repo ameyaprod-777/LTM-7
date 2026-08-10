@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, isGoogleAuthConfigured } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { ProjectForm } from "@/components/settings/project-form";
@@ -91,7 +91,7 @@ export default async function SettingsPage() {
         <h2 className="mb-4 text-lg font-semibold text-anthracite">
           Comptes connectés
         </h2>
-        <ConnectedAccounts />
+        <ConnectedAccounts googleEnabled={isGoogleAuthConfigured()} />
       </section>
 
       <section className="mt-12 border-t border-anthracite-100 pt-8">

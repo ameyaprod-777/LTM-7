@@ -10,8 +10,30 @@ import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
-export function LoginForm() {
+function oauthErrorMessage(code: string | null): string | null {
+  if (!code) return null;
+  switch (code) {
+    case "banned":
+      return "Votre compte a été suspendu.";
+    case "suspended":
+      return "Votre compte est temporairement suspendu.";
+    case "AccessDenied":
+      return "Connexion Google refusée.";
+    case "Configuration":
+      return "Google OAuth n’est pas configuré correctement (identifiants manquants ou redirect URI incorrect).";
+    case "OAuthAccountNotLinked":
+      return "Cet email est déjà associé à un compte. Connectez-vous avec votre mot de passe, puis liez Google dans les paramètres.";
+    case "OAuthCallback":
+    case "Callback":
+      return "Échec du retour Google. Vérifiez NEXTAUTH_URL et les URI autorisées dans Google Cloud.";
+    default:
+      return null;
+  }
+}
+
+export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/apply";
@@ -19,10 +41,7 @@ export function LoginForm() {
   const resetOk = searchParams.get("reset") === "1";
   const verifiedOk = searchParams.get("verified") === "1";
   const [error, setError] = useState<string | null>(() => {
-    if (errorParam === "banned") return "Votre compte a été suspendu.";
-    if (errorParam === "suspended")
-      return "Votre compte est temporairement suspendu.";
-    return null;
+    return oauthErrorMessage(errorParam);
   });
   const [loading, setLoading] = useState(false);
 
@@ -134,23 +153,20 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-anthracite-200" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-anthracite-400">ou</span>
-        </div>
-      </div>
+      {googleEnabled && (
+        <>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-anthracite-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-anthracite-400">ou</span>
+            </div>
+          </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={() => signIn("google", { callbackUrl })}
-      >
-        Continuer avec Google
-      </Button>
+          <GoogleSignInButton callbackUrl={callbackUrl} />
+        </>
+      )}
 
       <p className="text-center text-sm text-anthracite-500">
         Pas encore de compte ?{" "}
@@ -161,4 +177,3 @@ export function LoginForm() {
     </div>
   );
 }
-
