@@ -35,7 +35,7 @@ export function detectBufferMime(buffer: Buffer): AllowedDocMime | null {
   return null;
 }
 
-/** Vérifie que le contenu correspond au type déclaré et aux types autorisés. */
+/** Vérifie que le contenu est une image autorisée (magic bytes). */
 export function validateFileMagic(
   buffer: Buffer,
   declaredMime: string,
@@ -43,13 +43,38 @@ export function validateFileMagic(
 ): string | null {
   const detected = detectBufferMime(buffer);
   if (!detected) {
-    return "Fichier non reconnu ou format invalide.";
+    return "Fichier non reconnu ou format invalide. Sur iPhone, choisissez « Image » / JPG si possible (pas HEIC).";
   }
   if (!allowed.includes(detected)) {
     return "Type de fichier non autorisé.";
   }
-  if (detected !== declaredMime) {
+  // Mobile : file.type souvent vide ou image/heic alors que le contenu est JPEG
+  if (
+    declaredMime &&
+    declaredMime !== detected &&
+    declaredMime !== "application/octet-stream" &&
+    !declaredMime.startsWith("image/")
+  ) {
     return "Le contenu du fichier ne correspond pas à son type déclaré.";
+  }
+  return null;
+}
+
+/** Mime détecté pour choisir l'extension d'enregistrement. */
+export function resolveImageMime(
+  buffer: Buffer,
+  declaredMime: string
+): AllowedImageMime | null {
+  const detected = detectBufferMime(buffer);
+  if (detected === "image/jpeg" || detected === "image/png" || detected === "image/webp") {
+    return detected;
+  }
+  if (
+    declaredMime === "image/jpeg" ||
+    declaredMime === "image/png" ||
+    declaredMime === "image/webp"
+  ) {
+    return declaredMime;
   }
   return null;
 }

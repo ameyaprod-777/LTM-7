@@ -13,31 +13,43 @@ const recentProjectSchema = z.object({
 
 /** Schéma côté client : ne valide PAS les consentements
  *  (gérés par des useState externes à react-hook-form). */
-export const membershipApplicationFormSchema = z.object({
-  name: z.string().min(2, "Nom requis"),
-  /** Rempli via upload fichier (URL locale /api/avatars/…), pas saisie manuelle */
-  image: z.string().optional().or(z.literal("")),
-  city: z.string().min(2, "Ville requise"),
-  bio: z.string().min(20, "Bio : minimum 20 caractères").max(500),
-  motivation: z
-    .string()
-    .min(50, "Expliquez votre motivation (min. 50 caractères)")
-    .max(2000),
-  creativeDomain: z.nativeEnum(CreativeDomain, {
-    message: "Sélectionnez votre domaine créatif",
-  }),
-  /** Portfolio ou site web (un seul champ côté UI) */
-  portfolioUrl: z.string().url("URL invalide").optional().or(z.literal("")),
-  instagramUrl: z.string().optional(),
-  recentProjects: z.array(recentProjectSchema).max(3).optional(),
-  invitationToken: z.string().optional(),
-});
+export const membershipApplicationFormSchema = z
+  .object({
+    name: z.string().min(2, "Nom requis"),
+    /** Rempli via upload fichier (URL locale /api/avatars/…), pas saisie manuelle */
+    image: z.string().optional().or(z.literal("")),
+    city: z.string().min(2, "Ville requise"),
+    bio: z.string().min(20, "Bio : minimum 20 caractères").max(500),
+    motivation: z.string().max(2000).optional().or(z.literal("")),
+    creativeDomain: z.nativeEnum(CreativeDomain, {
+      message: "Sélectionnez votre domaine créatif",
+    }),
+    /** Portfolio ou site web (un seul champ côté UI) */
+    portfolioUrl: z.string().url("URL invalide").optional().or(z.literal("")),
+    instagramUrl: z.string().optional(),
+    recentProjects: z.array(recentProjectSchema).max(3).optional(),
+    invitationToken: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const invited = Boolean(data.invitationToken?.trim());
+    const motivation = (data.motivation ?? "").trim();
+    // Invitation : motivation facultative. Sinon min. 10 caractères.
+    if (!invited && motivation.length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["motivation"],
+        message: "Expliquez votre motivation (min. 10 caractères)",
+      });
+    }
+  });
 
 /** Schéma complet côté serveur : impose acceptTerms + acceptKycPolicy. */
-export const membershipApplicationSchema = membershipApplicationFormSchema.extend({
-  acceptTerms: acceptTermsSchema,
-  acceptKycPolicy: acceptKycPolicySchema,
-});
+export const membershipApplicationSchema = membershipApplicationFormSchema.and(
+  z.object({
+    acceptTerms: acceptTermsSchema,
+    acceptKycPolicy: acceptKycPolicySchema,
+  })
+);
 
 export type MembershipApplicationInput = z.infer<
   typeof membershipApplicationSchema

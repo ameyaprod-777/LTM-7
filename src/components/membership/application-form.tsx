@@ -197,12 +197,21 @@ export function MembershipApplicationForm({
 
       <div>
         <Label htmlFor="motivation">
-          Pourquoi souhaitez-vous rejoindre la communauté ? *
+          Pourquoi souhaitez-vous rejoindre la communauté ?
+          {invitationToken ? (
+            <span className="font-normal text-anthracite-400"> (facultatif)</span>
+          ) : (
+            " *"
+          )}
         </Label>
         <Textarea
           id="motivation"
           rows={5}
-          placeholder="Votre expérience, vos projets, ce que vous recherchez…"
+          placeholder={
+            invitationToken
+              ? "Optionnel — vous avez été invité·e, quelques mots suffisent…"
+              : "Votre expérience, vos projets, ce que vous recherchez…"
+          }
           error={errors.motivation?.message}
           {...register("motivation")}
         />

@@ -47,12 +47,25 @@ type UserData = {
     createdAt: string;
     reviewedAt: string | null;
     reviewedBy: { name: string | null } | null;
+    invitation: {
+      createdBy: { id: string; name: string | null; email: string };
+    } | null;
+  } | null;
+  invitationsSent: {
+    id: string;
+    usedAt: string | null;
+    usedBy: { id: string; name: string | null; email: string } | null;
+  }[];
+  invitationUsed: {
+    createdBy: { id: string; name: string | null; email: string };
+    usedAt: string | null;
   } | null;
   _count: {
     listings: number;
     bookingsAsRenter: number;
     bookingsAsLister: number;
     reviewsReceived: number;
+    invitationsSent: number;
   };
 };
 
@@ -239,6 +252,18 @@ export function AdminUserEditForm({
             <blockquote className="mt-4 border-l-2 border-accent pl-4 text-sm italic text-anthracite-600">
               {user.application.motivation}
             </blockquote>
+            {user.application.invitation && (
+              <p className="mt-3 rounded-lg bg-accent-muted px-3 py-2 text-xs text-anthracite">
+                Invité via lien par{" "}
+                <Link
+                  href={`/admin/users/${user.application.invitation.createdBy.id}`}
+                  className="font-semibold text-accent hover:underline"
+                >
+                  {user.application.invitation.createdBy.name ??
+                    user.application.invitation.createdBy.email}
+                </Link>
+              </p>
+            )}
             {user.application.adminMessage && (
               <p className="mt-3 text-sm text-anthracite-500">
                 Message admin : {user.application.adminMessage}
@@ -305,8 +330,60 @@ export function AdminUserEditForm({
               <dt className="text-anthracite-500">Avis reçus</dt>
               <dd>{user._count.reviewsReceived}</dd>
             </div>
+            <div className="flex justify-between">
+              <dt className="text-anthracite-500">Invitations créées</dt>
+              <dd>{user._count.invitationsSent}</dd>
+            </div>
           </dl>
         </section>
+
+        {(user.invitationUsed || user.invitationsSent.length > 0) && (
+          <section className="rounded-2xl border border-anthracite-100 bg-white p-6">
+            <h2 className="text-lg font-semibold text-anthracite">Invitations</h2>
+            {user.invitationUsed && (
+              <p className="mt-3 text-sm text-anthracite-600">
+                Ce compte a été invité par{" "}
+                <Link
+                  href={`/admin/users/${user.invitationUsed.createdBy.id}`}
+                  className="font-medium text-accent hover:underline"
+                >
+                  {user.invitationUsed.createdBy.name ??
+                    user.invitationUsed.createdBy.email}
+                </Link>
+                {user.invitationUsed.usedAt &&
+                  ` le ${formatDate(user.invitationUsed.usedAt)}`}
+                .
+              </p>
+            )}
+            {user.invitationsSent.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-anthracite-500">
+                  Personnes invitées ({user.invitationsSent.length})
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {user.invitationsSent.map((inv) =>
+                    inv.usedBy ? (
+                      <li key={inv.id} className="text-sm text-anthracite-700">
+                        <Link
+                          href={`/admin/users/${inv.usedBy.id}`}
+                          className="font-medium text-accent hover:underline"
+                        >
+                          {inv.usedBy.name ?? inv.usedBy.email}
+                        </Link>
+                        {inv.usedAt && (
+                          <span className="text-anthracite-400">
+                            {" "}
+                            · {formatDate(inv.usedAt)}
+                          </span>
+                        )}
+                      </li>
+                    ) : null
+                  )}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="rounded-2xl border border-anthracite-100 bg-white p-6">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-anthracite">

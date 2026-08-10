@@ -79,7 +79,11 @@ export default async function AdminMembershipPage({
               },
             },
           },
-          invitation: { include: { createdBy: { select: { name: true } } } },
+          invitation: {
+            include: {
+              createdBy: { select: { id: true, name: true, email: true } },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         take: 50,

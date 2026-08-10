@@ -21,6 +21,24 @@ export default async function AdminUserDetailPage({
       application: {
         include: {
           reviewedBy: { select: { name: true } },
+          invitation: {
+            include: {
+              createdBy: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+      },
+      invitationsSent: {
+        where: { usedById: { not: null } },
+        orderBy: { usedAt: "desc" },
+        take: 50,
+        include: {
+          usedBy: { select: { id: true, name: true, email: true } },
+        },
+      },
+      invitationUsed: {
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
         },
       },
       _count: {
@@ -29,6 +47,7 @@ export default async function AdminUserDetailPage({
           bookingsAsRenter: true,
           bookingsAsLister: true,
           reviewsReceived: true,
+          invitationsSent: true,
         },
       },
     },
@@ -49,6 +68,17 @@ export default async function AdminUserDetailPage({
           ...user.application,
           createdAt: user.application.createdAt.toISOString(),
           reviewedAt: user.application.reviewedAt?.toISOString() ?? null,
+        }
+      : null,
+    invitationsSent: user.invitationsSent.map((inv) => ({
+      id: inv.id,
+      usedAt: inv.usedAt?.toISOString() ?? null,
+      usedBy: inv.usedBy,
+    })),
+    invitationUsed: user.invitationUsed
+      ? {
+          createdBy: user.invitationUsed.createdBy,
+          usedAt: user.invitationUsed.usedAt?.toISOString() ?? null,
         }
       : null,
   };

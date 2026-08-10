@@ -26,10 +26,6 @@ export function LegalDocumentView({ document }: Props) {
         <p className="mt-4 text-xs text-anthracite-400">
           Dernière mise à jour : {LEGAL_LAST_UPDATED}
         </p>
-        <p className="mt-2 rounded-lg border border-amber-200/80 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-          Document d&apos;information à faire valider par un conseil juridique
-          avant toute exploitation commerciale à grande échelle.
-        </p>
       </header>
 
       <nav className="mb-10 rounded-xl border border-anthracite-100 bg-anthracite-50/50 p-4">

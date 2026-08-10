@@ -116,10 +116,19 @@ export function membershipIncompleteEmail(name: string, message: string) {
   `;
 }
 
-export function adminNewApplicationEmail(applicantName: string, applicantEmail: string) {
+export function adminNewApplicationEmail(
+  applicantName: string,
+  applicantEmail: string,
+  invitationNote?: string | null
+) {
   return `
     <h1>Nouvelle demande d'adhésion</h1>
     <p><strong>${applicantName}</strong> (${applicantEmail}) vient de soumettre une candidature.</p>
+    ${
+      invitationNote
+        ? `<p><strong>Invitation :</strong> ${invitationNote}</p>`
+        : ""
+    }
     <p><a href="${appUrl("/admin/membership")}">Examiner la demande</a></p>
   `;
 }

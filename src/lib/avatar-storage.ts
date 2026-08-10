@@ -3,6 +3,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import {
   validateFileMagic,
+  resolveImageMime,
   type AllowedImageMime,
 } from "@/lib/file-magic";
 
@@ -20,14 +21,19 @@ const AVATAR_ALLOWED: AllowedImageMime[] = [
   "image/webp",
 ];
 
-export const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 export function validateAvatarFile(file: File): string | null {
-  if (!(file.type in ALLOWED_MIME)) {
+  const type = (file.type || "").toLowerCase();
+  // Mobile : type souvent vide ; HEIC non supporté tel quel
+  if (type === "image/heic" || type === "image/heif") {
+    return "Format HEIC non supporté. Sur iPhone : Réglages → Appareil photo → Formats → « Le plus compatible », ou convertissez en JPG.";
+  }
+  if (type && !(type in ALLOWED_MIME) && type !== "application/octet-stream") {
     return "Format non accepté. Utilisez JPG, PNG ou WebP.";
   }
   if (file.size > AVATAR_MAX_BYTES) {
-    return "Image trop volumineuse (max. 3 Mo).";
+    return "Image trop volumineuse (max. 5 Mo).";
   }
   if (file.size === 0) {
     return "Fichier vide.";
@@ -40,10 +46,11 @@ export async function saveAvatarFile(userId: string, file: File) {
   if (err) throw new Error(err);
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const magicErr = validateFileMagic(buffer, file.type, AVATAR_ALLOWED);
+  const magicErr = validateFileMagic(buffer, file.type || "", AVATAR_ALLOWED);
   if (magicErr) throw new Error(magicErr);
 
-  const ext = ALLOWED_MIME[file.type as AllowedImageMime];
+  const mime = resolveImageMime(buffer, file.type || "") ?? "image/jpeg";
+  const ext = ALLOWED_MIME[mime];
   const filename = `${randomUUID()}${ext}`;
   const relativeDir = path.join("avatars", userId);
   const absoluteDir = path.join(UPLOAD_ROOT, relativeDir);
@@ -75,11 +82,8 @@ export async function deleteAvatarFile(storagePath: string) {
 }
 
 export function avatarPublicUrl(userId: string, filename: string) {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXTAUTH_URL ??
-    "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}/api/avatars/${userId}/${filename}`;
+  // Chemin relatif : fonctionne en local, IP:port et domaine sans mismatch d'origine
+  return `/api/avatars/${userId}/${filename}`;
 }
 
 export function parseAvatarUrl(image: string | null | undefined) {

@@ -55,7 +55,7 @@ type ApplicationCardProps = {
       projects: Project[];
     };
     invitation: {
-      createdBy: { name: string | null };
+      createdBy: { id: string; name: string | null; email: string };
     } | null;
   };
 };
@@ -145,7 +145,13 @@ export function MembershipApplicationCard({ app }: ApplicationCardProps) {
 
       {app.invitation && (
         <p className="mt-3 rounded-lg bg-accent-muted px-3 py-2 text-xs text-anthracite">
-          Invité par {app.invitation.createdBy.name ?? "un membre"}
+          Invité via lien par{" "}
+          <Link
+            href={`/admin/users/${app.invitation.createdBy.id}`}
+            className="font-semibold text-accent hover:underline"
+          >
+            {app.invitation.createdBy.name ?? app.invitation.createdBy.email}
+          </Link>
         </p>
       )}
 

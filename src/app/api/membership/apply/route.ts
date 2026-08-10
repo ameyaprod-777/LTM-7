@@ -140,7 +140,8 @@ export async function POST(req: Request) {
         const updated = await tx.membershipApplication.update({
           where: { userId: user.id },
           data: {
-            motivation: data.motivation,
+            motivation: data.motivation?.trim() ||
+              (invitationId ? "Candidature via invitation membre" : ""),
             status: "PENDING",
             adminMessage: null,
             reviewedAt: null,
@@ -153,7 +154,9 @@ export async function POST(req: Request) {
         const created = await tx.membershipApplication.create({
           data: {
             userId: user.id,
-            motivation: data.motivation,
+            motivation:
+              data.motivation?.trim() ||
+              (invitationId ? "Candidature via invitation membre" : ""),
             invitationId,
           },
         });
@@ -182,10 +185,27 @@ export async function POST(req: Request) {
       return appId;
     });
 
+    const invitationMeta = invitationId
+      ? await prisma.invitation.findUnique({
+          where: { id: invitationId },
+          select: {
+            createdBy: { select: { id: true, name: true, email: true } },
+          },
+        })
+      : null;
+
+    const inviteLabel = invitationMeta?.createdBy
+      ? `Invité via lien de ${invitationMeta.createdBy.name ?? invitationMeta.createdBy.email}`
+      : null;
+
     await notifyAdmins({
       type: "ADMIN_NEW_APPLICATION",
-      title: "Nouvelle demande d'adhésion",
-      body: `${data.name} souhaite rejoindre la communauté (identité vérifiée Stripe).`,
+      title: inviteLabel
+        ? "Nouvelle candidature (invitation)"
+        : "Nouvelle demande d'adhésion",
+      body: inviteLabel
+        ? `${data.name} souhaite rejoindre la communauté — ${inviteLabel}.`
+        : `${data.name} souhaite rejoindre la communauté (identité vérifiée Stripe).`,
       link: "/admin/membership",
     });
 
@@ -197,8 +217,10 @@ export async function POST(req: Request) {
     for (const admin of admins) {
       await sendEmail({
         to: admin.email,
-        subject: "[LoueTonMatos] Nouvelle demande d'adhésion",
-        html: adminNewApplicationEmail(data.name, user.email),
+        subject: inviteLabel
+          ? `[Invitation] Candidature — ${data.name}`
+          : `Nouvelle candidature — ${data.name}`,
+        html: adminNewApplicationEmail(data.name, user.email, inviteLabel),
       });
     }
 
