@@ -1,6 +1,6 @@
 # Migrations Prisma — LoueTonMatos
 
-Historique aligné sur le schéma actuel (Stripe Identity, sans upload KYC local).
+Historique aligné sur le schéma actuel (Stripe Identity, projets vidéo).
 
 ---
 
@@ -10,17 +10,11 @@ Historique aligné sur le schéma actuel (Stripe Identity, sans upload KYC local
 |-----------|---------|
 | `20260101000000_init` | Schéma initial (sans KYC fichier) |
 | `20260808120000_stripe_identity_booking_completion` | Stripe Identity + `Booking.renterCompletedAt` |
+| `20260810160000_project_video_url` | `Project.videoUrl` (YouTube / Vimeo) |
 
 ---
 
 ## Déploiement prod (serveur neuf)
-
-```bash
-# Dans deploy/deploy.sh (déjà intégré)
-docker compose -f docker-compose.prod.yml run --rm app npx prisma migrate deploy
-```
-
-Ou en local contre PostgreSQL :
 
 ```bash
 npm run db:migrate:deploy
@@ -34,13 +28,37 @@ npx prisma migrate status
 
 ---
 
+## Erreur P3005 — « The database schema is not empty »
+
+La base VPS existe déjà (tables créées via `db push` ou install manuel),
+mais Prisma n’a pas d’historique `_prisma_migrations`.
+
+**Sur le VPS :**
+
+```bash
+cd ~/louetonmatos
+git pull
+npm run db:baseline          # marque init + stripe_identity comme déjà appliquées
+npx prisma migrate deploy    # applique seulement les nouvelles (ex. videoUrl)
+npx prisma migrate status    # doit être OK
+```
+
+Si `videoUrl` existe déjà et `migrate deploy` dit « column already exists » :
+
+```bash
+npx prisma migrate resolve --applied 20260810160000_project_video_url
+```
+
+---
+
 ## Dev local — vous avez utilisé `db push`
 
 Si votre base locale est déjà synchronisée (`prisma db push`) et **n’a pas** `_prisma_migrations` :
 
 ```bash
 npm run db:baseline
-npx prisma migrate status   # doit afficher "Database schema is up to date"
+npx prisma migrate deploy
+npx prisma migrate status
 ```
 
 Ensuite, **ne plus utiliser** `db push` en routine — préférez :
@@ -57,15 +75,15 @@ npm run db:migrate:deploy   # appliquer en prod
 1. Modifier `prisma/schema.prisma`
 2. `npm run db:migrate` → nom explicite (ex. `add_foo_field`)
 3. Committer le dossier `prisma/migrations/…`
-4. Prod : `npm run db:migrate:deploy` via `deploy.sh`
+4. Prod : `npm run db:migrate:deploy`
 
 ---
 
 ## Reset complet (dev uniquement)
 
 ```bash
-npm run db:reset          # Docker + push + seed
-npm run db:baseline       # si vous repassez en mode migrate
+npm run db:reset
+npm run db:baseline
 ```
 
 Admin seul :
@@ -81,9 +99,9 @@ npm run db:baseline
 
 | Erreur | Cause | Action |
 |--------|--------|--------|
-| `column already exists` | Migration 2 rejouée | Vérifier `migrate status`, baseliner si OK |
-| Checksum mismatch sur `init` | Fichier migration modifié après apply | `npm run db:sync-checksums` |
-| `migrate deploy` échoue en prod | DB vide vs migrations | Logs `docker compose logs app`, vérifier `DATABASE_URL` |
+| **P3005** schema not empty | Pas d’historique migrate | `npm run db:baseline` puis `migrate deploy` |
+| `column already exists` | Migration rejouée | `migrate resolve --applied <nom>` |
+| Checksum mismatch | Fichier migration modifié | `npm run db:sync-checksums` |
 
 ---
 
