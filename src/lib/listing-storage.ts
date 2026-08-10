@@ -1,23 +1,20 @@
 import { mkdir, writeFile, unlink, rename, copyFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-import {
-  validateFileMagic,
-  type AllowedImageMime,
-} from "@/lib/file-magic";
+import { normalizeUploadImage } from "@/lib/normalize-image";
 import { getUploadRoot } from "@/lib/upload-root";
 
-const ALLOWED_MIME: Record<AllowedImageMime, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-};
-
-const PHOTO_ALLOWED: AllowedImageMime[] = [
+const ACCEPTABLE_TYPES = new Set([
   "image/jpeg",
+  "image/jpg",
   "image/png",
   "image/webp",
-];
+  "image/heic",
+  "image/heif",
+  "image/*",
+  "application/octet-stream",
+  "",
+]);
 
 export const LISTING_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 
@@ -26,8 +23,9 @@ function uploadRoot() {
 }
 
 export function validateListingPhotoFile(file: File): string | null {
-  if (!(file.type in ALLOWED_MIME)) {
-    return "Format non accepté. Utilisez JPG, PNG ou WebP.";
+  const type = (file.type || "").toLowerCase();
+  if (type && !ACCEPTABLE_TYPES.has(type) && !type.startsWith("image/")) {
+    return "Format non accepté. Utilisez une photo (JPG, PNG, WebP ou HEIC iPhone).";
   }
   if (file.size > LISTING_PHOTO_MAX_BYTES) {
     return "Image trop volumineuse (max. 8 Mo).";
@@ -38,27 +36,29 @@ export function validateListingPhotoFile(file: File): string | null {
   return null;
 }
 
-export async function saveListingPhotoFile(listingId: string, file: File) {
+async function writeNormalizedPhoto(
+  relativeDir: string,
+  file: File
+): Promise<{ storagePath: string; filename: string }> {
   const err = validateListingPhotoFile(file);
   if (err) throw new Error(err);
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const magicErr = validateFileMagic(buffer, file.type, PHOTO_ALLOWED);
-  if (magicErr) throw new Error(magicErr);
-
-  const ext = ALLOWED_MIME[file.type as AllowedImageMime];
+  const raw = Buffer.from(await file.arrayBuffer());
+  const { buffer, ext } = await normalizeUploadImage(raw);
   const filename = `${randomUUID()}${ext}`;
-  const relativeDir = path.join("listings", listingId);
   const root = uploadRoot();
   const absoluteDir = path.join(root, relativeDir);
   await mkdir(absoluteDir, { recursive: true });
-
   await writeFile(path.join(absoluteDir, filename), buffer);
 
   return {
     storagePath: path.join(relativeDir, filename),
     filename,
   };
+}
+
+export async function saveListingPhotoFile(listingId: string, file: File) {
+  return writeNormalizedPhoto(path.join("listings", listingId), file);
 }
 
 export function getListingPhotoAbsolutePath(storagePath: string): string {
@@ -111,26 +111,7 @@ export function parseListingPhotoUrl(url: string) {
 }
 
 export async function savePendingListingPhoto(userId: string, file: File) {
-  const err = validateListingPhotoFile(file);
-  if (err) throw new Error(err);
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const magicErr = validateFileMagic(buffer, file.type, PHOTO_ALLOWED);
-  if (magicErr) throw new Error(magicErr);
-
-  const ext = ALLOWED_MIME[file.type as AllowedImageMime];
-  const filename = `${randomUUID()}${ext}`;
-  const relativeDir = path.join("listings", "pending", userId);
-  const root = uploadRoot();
-  const absoluteDir = path.join(root, relativeDir);
-  await mkdir(absoluteDir, { recursive: true });
-
-  await writeFile(path.join(absoluteDir, filename), buffer);
-
-  return {
-    storagePath: path.join(relativeDir, filename),
-    filename,
-  };
+  return writeNormalizedPhoto(path.join("listings", "pending", userId), file);
 }
 
 export function getPendingListingPhotoAbsolutePath(
@@ -138,7 +119,7 @@ export function getPendingListingPhotoAbsolutePath(
   filename: string
 ): string {
   if (!/^[\w-]+$/.test(userId)) throw new Error("Utilisateur invalide");
-  if (!/^[\w.-]+\.(jpg|jpeg|png|webp)$/i.test(filename)) {
+  if (!/^[\w.-]+\.(jpg|jpeg|png|webp|heic|heif)$/i.test(filename)) {
     throw new Error("Fichier invalide");
   }
   const root = uploadRoot();

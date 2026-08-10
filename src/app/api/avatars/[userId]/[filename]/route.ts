@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import { getAvatarAbsolutePath } from "@/lib/avatar-storage";
-
-const MIME: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-};
+import { ensureBrowserImageBuffer } from "@/lib/normalize-image";
 
 export async function GET(
   _req: Request,
@@ -16,20 +10,34 @@ export async function GET(
 ) {
   const { userId, filename } = params;
 
-  if (!/^[\w-]+$/.test(userId) || !/^[\w.-]+\.(jpg|jpeg|png|webp)$/i.test(filename)) {
+  if (
+    !/^[\w-]+$/.test(userId) ||
+    !/^[\w.-]+\.(jpg|jpeg|png|webp|heic|heif)$/i.test(filename)
+  ) {
     return NextResponse.json({ error: "Non trouvé" }, { status: 404 });
   }
 
   try {
     const storagePath = path.join("avatars", userId, filename);
     const absolute = getAvatarAbsolutePath(storagePath);
-    const buffer = await readFile(absolute);
-    const ext = path.extname(filename).toLowerCase();
+    const raw = await readFile(absolute);
+    const { buffer, contentType, converted } =
+      await ensureBrowserImageBuffer(raw);
 
-    return new NextResponse(buffer, {
+    if (converted) {
+      try {
+        await writeFile(absolute, buffer);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": MIME[ext] ?? "application/octet-stream",
-        "Cache-Control": "public, max-age=86400",
+        "Content-Type": contentType,
+        "Cache-Control": converted
+          ? "public, max-age=3600"
+          : "public, max-age=86400",
       },
     });
   } catch {

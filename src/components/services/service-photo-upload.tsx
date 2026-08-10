@@ -68,7 +68,7 @@ export function ServicePhotoUpload({ serviceId, photos, onChange }: Props) {
           <span className="mt-1 text-[10px]">Ajouter</span>
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*,.heic,.heif"
             className="hidden"
             disabled={uploading}
             onChange={(e) => {

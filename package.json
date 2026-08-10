@@ -21,6 +21,7 @@
     "db:reset:admin": "tsx prisma/reset-to-admin.ts",
     "db:rename-admin-email": "tsx prisma/rename-admin-email.ts",
     "db:fix-media-urls": "tsx scripts/fix-media-urls.ts",
+    "media:fix-images": "tsx scripts/fix-listing-images.ts",
     "db:studio": "prisma studio",
     "deploy": "bash deploy/pm2-deploy.sh",
     "postinstall": "prisma generate"
@@ -38,6 +39,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "heic-convert": "^2.1.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.16.0",
     "next": "14.2.35",
@@ -49,12 +51,14 @@
     "react-hook-form": "^7.76.0",
     "react-leaflet": "^4.2.1",
     "resend": "^6.12.3",
+    "sharp": "^0.35.3",
     "stripe": "^22.1.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/heic-convert": "^2.1.1",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
     "@types/react": "^18",

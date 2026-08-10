@@ -42,6 +42,7 @@ const securityHeaders = [
 
 const nextConfig = {
   output: "standalone",
+  serverExternalPackages: ["sharp", "heic-convert"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

@@ -1,13 +1,20 @@
 import { mkdir, writeFile, rename, copyFile, unlink } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { normalizeUploadImage } from "@/lib/normalize-image";
 import { getUploadRoot } from "@/lib/upload-root";
 
-const ALLOWED_MIME: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-};
+const ACCEPTABLE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/*",
+  "application/octet-stream",
+  "",
+]);
 
 export const SERVICE_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 
@@ -16,8 +23,9 @@ function uploadRoot() {
 }
 
 export function validateServicePhotoFile(file: File): string | null {
-  if (!ALLOWED_MIME[file.type]) {
-    return "Format non accepté. Utilisez JPG, PNG ou WebP.";
+  const type = (file.type || "").toLowerCase();
+  if (type && !ACCEPTABLE_TYPES.has(type) && !type.startsWith("image/")) {
+    return "Format non accepté. Utilisez une photo (JPG, PNG, WebP ou HEIC iPhone).";
   }
   if (file.size > SERVICE_PHOTO_MAX_BYTES) {
     return "Image trop volumineuse (max. 8 Mo).";
@@ -28,23 +36,28 @@ export function validateServicePhotoFile(file: File): string | null {
   return null;
 }
 
-export async function saveServicePhotoFile(serviceId: string, file: File) {
+async function writeNormalizedPhoto(
+  relativeDir: string,
+  file: File
+): Promise<{ storagePath: string; filename: string }> {
   const err = validateServicePhotoFile(file);
   if (err) throw new Error(err);
 
-  const ext = ALLOWED_MIME[file.type];
+  const raw = Buffer.from(await file.arrayBuffer());
+  const { buffer, ext } = await normalizeUploadImage(raw);
   const filename = `${randomUUID()}${ext}`;
-  const relativeDir = path.join("services", serviceId);
   const absoluteDir = path.join(uploadRoot(), relativeDir);
   await mkdir(absoluteDir, { recursive: true });
-
-  const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(path.join(absoluteDir, filename), buffer);
 
   return {
     storagePath: path.join(relativeDir, filename),
     filename,
   };
+}
+
+export async function saveServicePhotoFile(serviceId: string, file: File) {
+  return writeNormalizedPhoto(path.join("services", serviceId), file);
 }
 
 export function getServicePhotoAbsolutePath(storagePath: string): string {
@@ -62,22 +75,7 @@ export function servicePhotoPublicUrl(serviceId: string, filename: string) {
 }
 
 export async function savePendingServicePhoto(userId: string, file: File) {
-  const err = validateServicePhotoFile(file);
-  if (err) throw new Error(err);
-
-  const ext = ALLOWED_MIME[file.type];
-  const filename = `${randomUUID()}${ext}`;
-  const relativeDir = path.join("services", "pending", userId);
-  const absoluteDir = path.join(uploadRoot(), relativeDir);
-  await mkdir(absoluteDir, { recursive: true });
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(absoluteDir, filename), buffer);
-
-  return {
-    storagePath: path.join(relativeDir, filename),
-    filename,
-  };
+  return writeNormalizedPhoto(path.join("services", "pending", userId), file);
 }
 
 export function getPendingServicePhotoAbsolutePath(
@@ -85,7 +83,7 @@ export function getPendingServicePhotoAbsolutePath(
   filename: string
 ): string {
   if (!/^[\w-]+$/.test(userId)) throw new Error("Utilisateur invalide");
-  if (!/^[\w.-]+\.(jpg|jpeg|png|webp)$/i.test(filename)) {
+  if (!/^[\w.-]+\.(jpg|jpeg|png|webp|heic|heif)$/i.test(filename)) {
     throw new Error("Fichier invalide");
   }
   const root = uploadRoot();

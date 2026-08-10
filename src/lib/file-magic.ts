@@ -43,7 +43,7 @@ export function validateFileMagic(
 ): string | null {
   const detected = detectBufferMime(buffer);
   if (!detected) {
-    return "Fichier non reconnu ou format invalide. Sur iPhone, choisissez « Image » / JPG si possible (pas HEIC).";
+    return "Fichier non reconnu ou format invalide.";
   }
   if (!allowed.includes(detected)) {
     return "Type de fichier non autorisé.";

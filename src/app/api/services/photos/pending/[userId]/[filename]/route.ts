@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
+import { readFile, writeFile } from "fs/promises";
 import { getPendingServicePhotoAbsolutePath } from "@/lib/service-storage";
-
-const MIME: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-};
+import { ensureBrowserImageBuffer } from "@/lib/normalize-image";
 
 export async function GET(
   _req: Request,
@@ -19,12 +12,21 @@ export async function GET(
       params.userId,
       params.filename
     );
-    const buffer = await readFile(absolute);
-    const ext = path.extname(params.filename).toLowerCase();
+    const raw = await readFile(absolute);
+    const { buffer, contentType, converted } =
+      await ensureBrowserImageBuffer(raw);
 
-    return new NextResponse(buffer, {
+    if (converted) {
+      try {
+        await writeFile(absolute, buffer);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": MIME[ext] ?? "application/octet-stream",
+        "Content-Type": contentType,
         "Cache-Control": "private, max-age=3600",
       },
     });

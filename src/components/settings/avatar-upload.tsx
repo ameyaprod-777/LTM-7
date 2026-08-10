@@ -8,15 +8,8 @@ import { Label } from "@/components/ui/label";
 const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.85;
 
-/** Recompresse en JPEG pour fiabiliser l’upload mobile (HEIC / gros fichiers / type vide). */
+/** Recompresse en JPEG côté navigateur ; le serveur convertit aussi le HEIC iPhone. */
 async function prepareAvatarForUpload(file: File): Promise<File> {
-  const type = (file.type || "").toLowerCase();
-  if (type === "image/heic" || type === "image/heif") {
-    throw new Error(
-      "Format HEIC non supporté. Sur iPhone : Réglages → Appareil photo → Formats → « Le plus compatible »."
-    );
-  }
-
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
